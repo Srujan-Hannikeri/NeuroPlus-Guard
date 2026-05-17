@@ -110,23 +110,24 @@ body {
 
 /* Contact card list - full width single column */
 .contact-card-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
+  display: grid !important;
+  gap: 12px !important;
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
 }
 
 /* Each contact card row */
 .contact-card {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
 }
 
 .app-layout {
