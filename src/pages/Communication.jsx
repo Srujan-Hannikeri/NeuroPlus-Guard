@@ -47,14 +47,36 @@ const Communication = () => {
       try {
         const { data } = await api.get('/appointments');
         setAppointments(data);
-        if (data.length > 0 && autoSelectAppointmentId) {
-          const matched = data.find(a => a._id === autoSelectAppointmentId);
-          if (matched) {
-            setSelectedContact(matched);
-            setRoomId(`room-${matched._id}`);
-            setMessages([]);
-            setHasJoined(false);
-            setIsFullscreen(false);
+        if (data.length > 0) {
+          if (autoSelectAppointmentId) {
+            const matched = data.find(a => a._id === autoSelectAppointmentId);
+            if (matched) {
+              setSelectedContact(matched);
+              setRoomId(`room-${matched._id}`);
+              setMessages([]);
+              setHasJoined(false);
+              setIsFullscreen(false);
+            }
+          } else {
+            // Find the unique appointments like the sidebar does to select a valid active one
+            const uniqueContacts = [];
+            const seenIds = new Set();
+            data.forEach(appt => {
+              const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+              if (contactId && !seenIds.has(contactId)) {
+                seenIds.add(contactId);
+                uniqueContacts.push(appt);
+              }
+            });
+
+            if (uniqueContacts.length > 0) {
+              const firstActive = uniqueContacts.find(a => a.status === 'Accepted') || uniqueContacts[0];
+              setSelectedContact(firstActive);
+              setRoomId(`room-${firstActive._id}`);
+              setMessages([]);
+              setHasJoined(false);
+              setIsFullscreen(false);
+            }
           }
         }
       } catch (err) {
@@ -383,7 +405,9 @@ const Communication = () => {
               }
 
               return filtered.map(appt => {
-                const contactName = user?.role === 'Doctor' ? appt.patient?.name : `Dr. ${appt.doctor?.name}`;
+                const contactName = user?.role === 'Doctor' 
+                  ? appt.patient?.name 
+                  : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
                 const isActive = selectedContact?._id === appt._id;
                 return (
                   <div 
@@ -402,12 +426,35 @@ const Communication = () => {
                     }}
                     className="contact-item"
                   >
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                      {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+                    <div style={{ position: 'relative', display: 'flex' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{
+                        position: 'absolute',
+                        bottom: '-2px',
+                        right: '-2px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: appt.status === 'Accepted' ? '#10b981' : '#f59e0b',
+                        border: '2px solid #fff',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+                      }} />
                     </div>
-                    <div className="contact-details" style={{ flex: 1, overflow: 'hidden' }}>
+                    <div className="contact-details" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <p style={{ fontWeight: '600', margin: 0, color: 'var(--text-main)', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactName}</p>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>Consultation active</p>
+                      <span style={{ 
+                        fontSize: '0.65rem', 
+                        padding: '1px 6px', 
+                        borderRadius: '4px', 
+                        background: appt.status === 'Accepted' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', 
+                        color: appt.status === 'Accepted' ? '#10b981' : '#f59e0b',
+                        fontWeight: 'bold',
+                        alignSelf: 'flex-start'
+                      }}>
+                        {appt.status}
+                      </span>
                     </div>
                   </div>
                 );
@@ -435,7 +482,9 @@ const Communication = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div>
                     <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem' }}>
-                      {user?.role === 'Doctor' ? selectedContact.patient?.name : `Dr. ${selectedContact.doctor?.name}`}
+                      {user?.role === 'Doctor' 
+                        ? selectedContact.patient?.name 
+                        : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
                     </h3>
                     <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Online Consultation Room</p>
                   </div>
