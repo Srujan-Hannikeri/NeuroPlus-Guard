@@ -1,0 +1,11 @@
+{
+  "name": "neuroplus-guard",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=frontend"
+  }
+}
