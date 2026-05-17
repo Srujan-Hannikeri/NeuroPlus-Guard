@@ -159,7 +159,7 @@ const PatientDashboard = () => {
         {doctors.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>No doctors found at the moment.</p>
         ) : (
-          <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
             {doctors.map(doctor => {
               const activeAppointment = appointments.find(a => a.doctor?._id === doctor._id && (a.status === 'Pending' || a.status === 'Accepted'));
               return (
