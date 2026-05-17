@@ -157,7 +157,7 @@ const Prescriptions = () => {
                   </span>
                 </h4>
                 
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '12px' }}>
+                <table className="prescription-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '12px' }}>
                   <thead>
                     <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
                       <th style={{ padding: '8px', borderBottom: '1px solid #cbd5e1' }}>Medicine</th>
@@ -169,14 +169,14 @@ const Prescriptions = () => {
                   <tbody>
                     {presc.medicines.map((m, i) => (
                       <tr key={i}>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{m.name}</td>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{m.numberOfTablets}</td>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
+                        <td data-label="Medicine" style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{m.name}</td>
+                        <td data-label="Tablets" style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{m.numberOfTablets}</td>
+                        <td data-label="Frequency" style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
                           {m.morning && <span style={{ background: '#fef08a', padding: '2px 6px', borderRadius: '4px', marginRight: '4px' }}>Morning</span>}
                           {m.afternoon && <span style={{ background: '#fed7aa', padding: '2px 6px', borderRadius: '4px', marginRight: '4px' }}>Afternoon</span>}
                           {m.night && <span style={{ background: '#cbd5e1', padding: '2px 6px', borderRadius: '4px' }}>Night</span>}
                         </td>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{m.durationDays} days</td>
+                        <td data-label="Duration" style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{m.durationDays} days</td>
                       </tr>
                     ))}
                   </tbody>

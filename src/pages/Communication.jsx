@@ -264,7 +264,7 @@ const Communication = () => {
         </div>
       </nav>
 
-      <div style={{ display: 'flex', gap: '24px', flex: 1, overflow: 'hidden', paddingBottom: '24px' }}>
+      <div className="communication-layout" style={{ display: 'flex', gap: '24px', flex: 1, overflow: 'hidden', paddingBottom: '24px' }}>
         {/* Video Area */}
         <div className="glass-panel" style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: 1, backgroundColor: '#000', borderRadius: '16px 16px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -351,7 +351,7 @@ const Communication = () => {
           </div>
           
           {/* Controls */}
-          <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', borderTop: '1px solid var(--glass-border)' }}>
+          <div className="call-controls" style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', borderTop: '1px solid var(--glass-border)' }}>
             <button 
               onClick={toggleMute} 
               style={{ width: '50px', height: '50px', borderRadius: '50%', border: 'none', backgroundColor: isMuted ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
