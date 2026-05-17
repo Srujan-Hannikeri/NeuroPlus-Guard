@@ -811,8 +811,8 @@ const Communication = () => {
             {hasJoined && (
               <div 
                 ref={videoCallContainerRef}
+                className="video-block-container"
                 style={{ 
-                  flex: 2, 
                   display: 'flex', 
                   flexDirection: 'column', 
                   overflow: 'hidden', 
@@ -820,7 +820,6 @@ const Communication = () => {
                   backgroundColor: '#000',
                   borderRadius: isFullscreen ? '0' : '12px',
                   width: '100%',
-                  height: '100%',
                   position: 'relative'
                 }}
               >
