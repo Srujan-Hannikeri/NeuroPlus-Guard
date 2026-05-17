@@ -489,8 +489,8 @@ const Communication = () => {
                     <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Online Consultation Room</p>
                   </div>
                   
-                  {/* Quick-switch select dropdown on mobile screens */}
-                  <div className="mobile-only-flex" style={{ position: 'relative', flexShrink: 0 }}>
+                  {/* Contact selector dropdown for both mobile and desktop */}
+                  <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                     <select 
                       value={selectedContact?._id || ''} 
                       onChange={(e) => {
@@ -543,7 +543,7 @@ const Communication = () => {
                     className="btn-primary" 
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#10b981', fontSize: '0.8rem', flexShrink: 0 }}
                   >
-                    <Video size={16} /> <span className="desktop-only">Start Video Call</span>
+                    <Video size={16} /> Start Video Call
                   </button>
                 )}
               </div>
