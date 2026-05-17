@@ -59,4 +59,22 @@ router.post('/:roomId/message', protect, async (req, res) => {
   }
 });
 
+// In-memory online store: { userId: timestamp }
+const onlineUsers = {};
+
+// Heartbeat — called by frontend every 20s to mark user as online
+router.post('/heartbeat', protect, async (req, res) => {
+  onlineUsers[req.user._id.toString()] = Date.now();
+  res.json({ ok: true });
+});
+
+// Get list of online user IDs (seen in last 30s)
+router.get('/online-users', protect, async (req, res) => {
+  const now = Date.now();
+  const online = Object.entries(onlineUsers)
+    .filter(([, ts]) => now - ts < 30000)
+    .map(([id]) => id);
+  res.json({ onlineUserIds: online });
+});
+
 module.exports = router;

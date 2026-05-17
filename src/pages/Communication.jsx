@@ -35,6 +35,7 @@ const Communication = () => {
   const [isAudioCall, setIsAudioCall] = useState(false);
   const [newMessageCounts, setNewMessageCounts] = useState({});
   const [lastReadCounts, setLastReadCounts] = useState({});
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
 
   // Polling tracking refs
   const hasOffered = useRef(false);
@@ -138,6 +139,27 @@ const Communication = () => {
     const interval = setInterval(pollAllRooms, 5000);
     return () => clearInterval(interval);
   }, [selectedContact, appointments]);
+
+  // Send heartbeat every 20s so others can see us as online
+  useEffect(() => {
+    const ping = () => api.post('/communication/heartbeat').catch(() => {});
+    ping();
+    const interval = setInterval(ping, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll online users list every 15s
+  useEffect(() => {
+    const fetchOnline = async () => {
+      try {
+        const { data } = await api.get('/communication/online-users');
+        setOnlineUserIds(new Set(data.onlineUserIds || []));
+      } catch {}
+    };
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const exitNativeFullscreen = () => {
     try {
@@ -376,15 +398,14 @@ const Communication = () => {
     }
   };
 
-  // Deterministic online indicator dynamically seeded by contactId
+  // Real online check using heartbeat-tracked IDs
   const isContactOnline = (contactId) => {
     if (!contactId) return false;
-    const charCodeSum = String(contactId).split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
-    return charCodeSum % 2 === 0;
+    return onlineUserIds.has(String(contactId));
   };
 
   return (
-    <div className="dashboard-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>
       
       {/* 1. Navbar */}
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>

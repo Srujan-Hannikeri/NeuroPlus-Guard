@@ -90,9 +90,14 @@ body {
 
 .dashboard-container {
   width: 100%;
-  max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
+}
+
+/* Consultation page specific — no max-width, full bleed */
+.consultation-page {
+  width: 100%;
+  padding: 0;
 }
 
 .app-layout {
