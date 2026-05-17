@@ -361,36 +361,51 @@ const Communication = () => {
 
   return (
     <div className="dashboard-container" style={{ maxWidth: '1200px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      
+      {/* 1. Navbar */}
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate(-1)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => {
+          if (selectedContact) {
+            setSelectedContact(null);
+          } else {
+            navigate(-1);
+          }
+        }}>
           <Logo width={40} height={40} />
           <h2>Consultation & Chat</h2>
         </div>
       </nav>
 
-      {/* Main Container */}
-      <div className="consultation-container" style={{ display: 'flex', flex: 1, gap: '20px', overflow: 'hidden', paddingBottom: '16px' }}>
-        
-        {/* 1. Left Contact Sidebar (Responsive Master-Detail flow) */}
-        <div className={`chat-sidebar glass-panel ${selectedContact ? 'mobile-hide' : 'mobile-show'}`} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div className="sidebar-header" style={{ padding: '12px', borderBottom: '1px solid var(--glass-border)' }}>
-            <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '1.1rem', fontWeight: 'bold' }}>
-              {user?.role === 'Doctor' ? 'Connected Patients' : 'Connected Doctors'}
-            </h3>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+      {/* 2. Symmetrical View Rendering */}
+      {!selectedContact ? (
+        /* Connected Contacts Grid View (No Chatbox visible here!) */
+        <div className="glass-panel" style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3 style={{ color: 'var(--primary)', margin: 0, fontSize: '1.25rem', fontWeight: 'bold' }}>
+                {user?.role === 'Doctor' ? 'Your Connected Patients' : 'Your Connected Doctors'}
+              </h3>
+              <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.82rem' }}>
+                Select a connected contact to open a secure chat and call consultation room.
+              </p>
+            </div>
+            
+            {/* Search Bar */}
+            <div style={{ position: 'relative', width: '260px' }}>
+              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
                 type="text" 
                 placeholder="Search..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input-field"
-                style={{ width: '100%', padding: '6px 10px 6px 28px', borderRadius: '8px', fontSize: '0.85rem' }}
+                style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: '24px', fontSize: '0.85rem' }}
               />
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px' }}>
+          {/* Connected Contacts Cards Grid */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
             {(() => {
               const uniqueContacts = [];
               const seenIds = new Set();
@@ -409,304 +424,331 @@ const Communication = () => {
               );
 
               if (filtered.length === 0) {
-                return <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.8rem', marginTop: '20px' }}>No contacts found.</p>;
-              }
-
-              return filtered.map(appt => {
-                const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
-                const contactName = user?.role === 'Doctor' 
-                  ? appt.patient?.name 
-                  : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
-                const isOnline = isContactOnline(contactId);
-                const isActive = selectedContact?._id === appt._id;
-
                 return (
-                  <div 
-                    key={appt._id} 
-                    onClick={() => selectContact(appt)}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '10px', 
-                      padding: '10px', 
-                      borderRadius: '8px', 
-                      cursor: 'pointer',
-                      background: isActive ? 'rgba(15, 130, 135, 0.1)' : 'transparent',
-                      border: isActive ? '1px solid var(--primary)' : '1px solid transparent',
-                      transition: 'all 0.2s ease'
-                    }}
-                    className="contact-item"
-                  >
-                    <div style={{ position: 'relative', display: 'flex' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                        {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
-                      </div>
-                      <span style={{
-                        position: 'absolute',
-                        bottom: '-2px',
-                        right: '-2px',
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        background: isOnline ? '#10b981' : '#94a3b8',
-                        border: '2px solid #fff',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                      }} />
-                    </div>
-                    
-                    <div className="contact-details" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <p style={{ fontWeight: '600', margin: 0, color: 'var(--text-main)', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {contactName}
-                      </p>
-                      <span style={{ 
-                        fontSize: '0.65rem', 
-                        padding: '1px 6px', 
-                        borderRadius: '4px', 
-                        background: isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)', 
-                        color: isOnline ? '#10b981' : '#64748b',
-                        fontWeight: 'bold',
-                        alignSelf: 'flex-start'
-                      }}>
-                        {isOnline ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', opacity: 0.5 }}>
+                    <MessageSquare size={36} color="var(--primary)" />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '8px' }}>No connected contacts found.</p>
                   </div>
                 );
-              });
+              }
+
+              return (
+                <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+                  {filtered.map(appt => {
+                    const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+                    const contactName = user?.role === 'Doctor' 
+                      ? appt.patient?.name 
+                      : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
+                    const isOnline = isContactOnline(contactId);
+
+                    return (
+                      <div 
+                        key={appt._id}
+                        className="glass-panel" 
+                        style={{ 
+                          padding: '16px', 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--glass-border)',
+                          background: '#fff',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ position: 'relative', display: 'flex' }}>
+                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
+                              {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+                            </div>
+                            <span style={{
+                              position: 'absolute',
+                              bottom: '-2px',
+                              right: '-2px',
+                              width: '12px',
+                              height: '12px',
+                              borderRadius: '50%',
+                              background: isOnline ? '#10b981' : '#94a3b8',
+                              border: '2px solid #fff',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+                            }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '0.92rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {contactName}
+                            </h4>
+                            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {user?.role === 'Doctor' ? 'Patient Profile' : (appt.doctor?.specialization || 'General Physician')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                          <span style={{ 
+                            fontSize: '0.7rem', 
+                            padding: '2px 8px', 
+                            borderRadius: '10px', 
+                            background: isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)', 
+                            color: isOnline ? '#10b981' : '#64748b',
+                            fontWeight: 'bold'
+                          }}>
+                            {isOnline ? '● Online' : '○ Offline'}
+                          </span>
+                          
+                          <button 
+                            onClick={() => selectContact(appt)}
+                            className="btn-primary"
+                            style={{ padding: '6px 14px', fontSize: '0.8rem', borderRadius: '20px', background: 'var(--primary)' }}
+                          >
+                            Chat & Consult
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
             })()}
           </div>
         </div>
-
-        {/* 2. Right Workspace Panel (Responsive Master-Detail flow) */}
-        <div className={`workspace-panel ${selectedContact ? 'mobile-show' : 'mobile-hide'}`} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      ) : (
+        /* Secure Dedicated Workspace View (Full screen chatbox + Call buttons at the top) */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
           
-          {!selectedContact ? (
-            <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-              <MessageSquare size={48} color="var(--primary)" style={{ opacity: 0.3, marginBottom: '16px' }} />
-              <h3 style={{ color: 'var(--text-main)', marginBottom: '6px', fontSize: '1.1rem' }}>Select a Contact</h3>
-              <p style={{ color: 'var(--text-muted)', maxWidth: '350px', margin: 0, fontSize: '0.85rem' }}>
-                Choose a {user?.role === 'Doctor' ? 'patient' : 'doctor'} from the list on the left to view chat history and start your voice or video consultation.
-              </p>
-            </div>
-          ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
-              
-              {/* Workspace Header containing Voice Call and Video Call Actions */}
-              <div className="glass-panel" style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {/* Mobile Back Button */}
-                  <button 
-                    onClick={() => setSelectedContact(null)}
-                    className="mobile-only-flex"
-                    style={{
-                      background: 'rgba(15, 130, 135, 0.08)',
-                      border: 'none',
-                      padding: '6px 10px',
-                      borderRadius: '16px',
-                      color: 'var(--primary)',
-                      fontSize: '0.78rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      alignItems: 'center',
-                      gap: '4px',
-                      marginRight: '4px'
-                    }}
-                  >
-                    ← Back
-                  </button>
+          {/* Workspace Header containing Voice Call and Video Call Actions */}
+          <div className="glass-panel" style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', border: '1px solid var(--glass-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Symmetrical Back to List Button for both Desktop and Mobile */}
+              <button 
+                onClick={() => setSelectedContact(null)}
+                style={{
+                  background: 'rgba(15, 130, 135, 0.08)',
+                  border: 'none',
+                  padding: '8px 14px',
+                  borderRadius: '24px',
+                  color: 'var(--primary)',
+                  fontSize: '0.82rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                ← Back
+              </button>
 
-                  <div>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 'bold' }}>
-                      {user?.role === 'Doctor' 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ position: 'relative', display: 'flex' }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                    {(() => {
+                      const name = user?.role === 'Doctor' 
                         ? selectedContact.patient?.name 
-                        : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
-                    </h3>
-                    <p style={{ margin: 0, fontSize: '0.7rem', color: isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? '#10b981' : '#94a3b8', fontWeight: 'bold' }}>
-                      {isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? '● Online & Connected' : '○ Offline'}
-                    </p>
+                        : selectedContact.doctor?.name;
+                      return name?.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase();
+                    })()}
                   </div>
+                  <span style={{
+                    position: 'absolute',
+                    bottom: '-1px',
+                    right: '-1px',
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? '#10b981' : '#94a3b8',
+                    border: '2px solid #fff'
+                  }} />
                 </div>
-
-                {!hasJoined && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {/* Voice Call Trigger */}
-                    <button 
-                      onClick={() => {
-                        setIsAudioCall(true);
-                        setShowCallConfirm(true);
-                      }}
-                      className="btn-primary" 
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--primary)', fontSize: '0.8rem', flexShrink: 0, borderRadius: '20px' }}
-                    >
-                      <Phone size={14} /> Voice Call
-                    </button>
-
-                    {/* Video Call Trigger */}
-                    <button 
-                      onClick={() => {
-                        setIsAudioCall(false);
-                        setShowCallConfirm(true);
-                      }}
-                      className="btn-primary" 
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#10b981', fontSize: '0.8rem', flexShrink: 0, borderRadius: '20px' }}
-                    >
-                      <Video size={14} /> Video Call
-                    </button>
-                  </div>
-                )}
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem', fontWeight: 'bold' }}>
+                    {user?.role === 'Doctor' 
+                      ? selectedContact.patient?.name 
+                      : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? '#10b981' : '#94a3b8', fontWeight: 'bold' }}>
+                    {isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? 'Online & Connected' : 'Offline'}
+                  </p>
+                </div>
               </div>
+            </div>
 
-              {/* Chat & Video Work Area */}
-              <div className="communication-layout" style={{ display: 'flex', gap: '12px', flex: 1, overflow: 'hidden' }}>
-                
-                {/* Video Block (Visible only when call is active) */}
-                {hasJoined && (
-                  <div className={`glass-panel ${isFullscreen ? 'fullscreen-video' : ''}`} style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
-                    <div style={{ flex: 1, backgroundColor: '#000', borderRadius: '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {!hasJoined && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {/* Voice Call Trigger */}
+                <button 
+                  onClick={() => {
+                    setIsAudioCall(true);
+                    setShowCallConfirm(true);
+                  }}
+                  className="btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--primary)', fontSize: '0.82rem', flexShrink: 0, borderRadius: '24px' }}
+                >
+                  <Phone size={14} /> Voice Call
+                </button>
+
+                {/* Video Call Trigger */}
+                <button 
+                  onClick={() => {
+                    setIsAudioCall(false);
+                    setShowCallConfirm(true);
+                  }}
+                  className="btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#10b981', fontSize: '0.82rem', flexShrink: 0, borderRadius: '24px' }}
+                >
+                  <Video size={14} /> Video Call
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Work Area (Call + Chat room) */}
+          <div className="communication-layout" style={{ display: 'flex', gap: '12px', flex: 1, overflow: 'hidden' }}>
+            
+            {/* Video Block (Visible only when call is active) */}
+            {hasJoined && (
+              <div className={`glass-panel ${isFullscreen ? 'fullscreen-video' : ''}`} style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
+                <div style={{ flex: 1, backgroundColor: '#000', borderRadius: '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  
+                  {isAudioCall ? (
+                    /* Beautiful Pulsating Audio Call UI */
+                    <div style={{ flex: 1, width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', borderRadius: '12px 12px 0 0', position: 'relative', overflow: 'hidden' }}>
+                      <div className="pulse-avatar" style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(15, 130, 135, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--primary)', position: 'relative' }}>
+                        <User size={48} color="var(--primary)" />
+                        <span className="pulse-ring" style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid var(--primary)', opacity: 0.8 }} />
+                      </div>
+                      <h3 style={{ color: '#fff', margin: 0, fontSize: '1.1rem' }}>Secure Voice Consultation</h3>
+                      <p style={{ color: '#10b981', margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>● Voice Stream Connected</p>
+                    </div>
+                  ) : (
+                    /* Standard Video Call UI */
+                    <>
+                      {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
                       
-                      {isAudioCall ? (
-                        /* Beautiful Pulsating Audio Call UI */
-                        <div style={{ flex: 1, width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', borderRadius: '12px 12px 0 0', position: 'relative', overflow: 'hidden' }}>
-                          <div className="pulse-avatar" style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'rgba(15, 130, 135, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--primary)', position: 'relative' }}>
-                            <User size={40} color="var(--primary)" />
-                            <span className="pulse-ring" style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid var(--primary)', opacity: 0.8 }} />
-                          </div>
-                          <h3 style={{ color: '#fff', margin: 0, fontSize: '1.05rem' }}>Secure Voice Consultation</h3>
-                          <p style={{ color: '#10b981', margin: 0, fontSize: '0.8rem', fontWeight: 'bold' }}>● Voice Stream Connected</p>
-                        </div>
-                      ) : (
-                        /* Standard Video Call UI */
-                        <>
-                          {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
-                          
-                          <video 
-                            ref={remoteVideoRef} 
+                      <video 
+                        ref={remoteVideoRef} 
+                        autoPlay 
+                        playsInline 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStream ? 'block' : 'none' }} 
+                      />
+                      
+                      {/* Self Video PIP */}
+                      <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
+                         <video 
+                            ref={localVideoRef} 
                             autoPlay 
                             playsInline 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStream ? 'block' : 'none' }} 
-                          />
-                          
-                          {/* Self Video PIP */}
-                          <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
-                             <video 
-                                ref={localVideoRef} 
-                                autoPlay 
-                                playsInline 
-                                muted 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: isVideoOff ? 'none' : 'block' }} 
-                             />
-                             {isVideoOff && <VideoOff color="#fff" size={20} opacity={0.5} />}
-                          </div>
-                        </>
-                      )}
-
-                      {/* Exit Fullscreen Toggle Button */}
-                      {isFullscreen && (
-                        <button 
-                          onClick={() => {
-                            setIsFullscreen(false);
-                            exitNativeFullscreen();
-                          }} 
-                          className="btn-primary" 
-                          style={{ position: 'absolute', top: '12px', right: '12px', padding: '4px 8px', fontSize: '0.75rem', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}
-                        >
-                          Exit Full Screen
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Video Controls */}
-                    <div className="call-controls" style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderTop: '1px solid var(--glass-border)', background: 'var(--card-bg)' }}>
-                      <button onClick={toggleMute} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isMuted ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
-                      </button>
-                      
-                      {!isAudioCall && (
-                        <button onClick={toggleVideo} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isVideoOff ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {isVideoOff ? <VideoOff size={16} /> : <Video size={16} />}
-                        </button>
-                      )}
-
-                      <button onClick={toggleTranscription} style={{ padding: '0 12px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: isTranscribing ? '#10b981' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem' }}>
-                        {isTranscribing ? 'Stop Transcribing' : 'Transcribe'}
-                      </button>
-                      <button onClick={endCall} style={{ width: '48px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: 'var(--error)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <PhoneOff size={16} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Chat Block (Hidden if in Fullscreen Video) */}
-                {(!hasJoined || !isFullscreen) && (
-                  <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
-                    <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                       <MessageSquare size={14} color="var(--primary)" />
-                       <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '0.85rem' }}>Chat Room</h4>
-                    </div>
-
-                    <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.2)' }}>
-                      {messages.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', marginTop: '20px' }}>No messages yet. Send a message to start chatting!</p>
-                      ) : (
-                        messages.map((msg, idx) => {
-                          const isMe = msg.senderId === user._id;
-                          return (
-                            <div 
-                              key={idx} 
-                              className={`chat-message ${isMe ? 'me' : 'other'}`}
-                            >
-                              {msg.text}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    <form onSubmit={handleSend} className="chat-input-container">
-                      <input 
-                        type="text" 
-                        className="chat-input-field" 
-                        placeholder="Type a message..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                      />
-                      <button type="submit" className="chat-send-btn">
-                        <Send size={16} />
-                      </button>
-                    </form>
-
-                    {/* AI Notes Section */}
-                    {hasJoined && (
-                      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--glass-border)', background: '#f8fafc' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI Consultation Notes</h5>
-                          <button onClick={generateAINotes} disabled={isGeneratingNotes || !transcription} className="btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
-                            {isGeneratingNotes ? '...' : 'Generate'}
-                          </button>
-                        </div>
-                        {aiNotes ? (
-                          <div style={{ fontSize: '0.75rem', color: '#334155', maxHeight: '60px', overflowY: 'auto', background: '#fff', padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                            {aiNotes}
-                          </div>
-                        ) : (
-                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
-                            {transcription ? "Click generate to create AI summary." : "Transcribe call to generate notes."}
-                          </p>
-                        )}
+                            muted 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: isVideoOff ? 'none' : 'block' }} 
+                         />
+                         {isVideoOff && <VideoOff color="#fff" size={20} opacity={0.5} />}
                       </div>
+                    </>
+                  )}
+
+                  {/* Exit Fullscreen Toggle Button */}
+                  {isFullscreen && (
+                    <button 
+                      onClick={() => {
+                        setIsFullscreen(false);
+                        exitNativeFullscreen();
+                      }} 
+                      className="btn-primary" 
+                      style={{ position: 'absolute', top: '12px', right: '12px', padding: '4px 8px', fontSize: '0.75rem', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}
+                    >
+                      Exit Full Screen
+                    </button>
+                  )}
+                </div>
+                
+                {/* Video Controls */}
+                <div className="call-controls" style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderTop: '1px solid var(--glass-border)', background: 'var(--card-bg)' }}>
+                  <button onClick={toggleMute} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isMuted ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                  </button>
+                  
+                  {!isAudioCall && (
+                    <button onClick={toggleVideo} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isVideoOff ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {isVideoOff ? <VideoOff size={16} /> : <Video size={16} />}
+                    </button>
+                  )}
+
+                  <button onClick={toggleTranscription} style={{ padding: '0 12px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: isTranscribing ? '#10b981' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem' }}>
+                    {isTranscribing ? 'Stop Transcribing' : 'Transcribe'}
+                  </button>
+                  <button onClick={endCall} style={{ width: '48px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: 'var(--error)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <PhoneOff size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Chat Block (Hidden if in Fullscreen Video) */}
+            {(!hasJoined || !isFullscreen) && (
+              <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                   <MessageSquare size={14} color="var(--primary)" />
+                   <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '0.85rem' }}>Chat Consultation Room</h4>
+                </div>
+
+                <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.2)' }}>
+                  {messages.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', marginTop: '20px' }}>No messages yet. Send a message to start chatting!</p>
+                  ) : (
+                    messages.map((msg, idx) => {
+                      const isMe = msg.senderId === user._id;
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`chat-message ${isMe ? 'me' : 'other'}`}
+                        >
+                          {msg.text}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <form onSubmit={handleSend} className="chat-input-container">
+                  <input 
+                    type="text" 
+                    className="chat-input-field" 
+                    placeholder="Type a message..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                  />
+                  <button type="submit" className="chat-send-btn">
+                    <Send size={16} />
+                  </button>
+                </form>
+
+                {/* AI Notes Section */}
+                {hasJoined && (
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--glass-border)', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI Consultation Notes</h5>
+                      <button onClick={generateAINotes} disabled={isGeneratingNotes || !transcription} className="btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                        {isGeneratingNotes ? '...' : 'Generate'}
+                      </button>
+                    </div>
+                    {aiNotes ? (
+                      <div style={{ fontSize: '0.75rem', color: '#334155', maxHeight: '60px', overflowY: 'auto', background: '#fff', padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                        {aiNotes}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
+                        {transcription ? "Click generate to create AI summary." : "Transcribe call to generate notes."}
+                      </p>
                     )}
                   </div>
                 )}
-                
               </div>
-
-            </div>
-          )}
+            )}
+            
+          </div>
 
         </div>
-
-      </div>
+      )}
 
       {/* 3. Gorgeous Glassmorphism Modal for Video Call View Choice */}
       {showCallConfirm && (
