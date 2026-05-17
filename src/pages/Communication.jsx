@@ -78,8 +78,8 @@ const Communication = () => {
       try {
         const { data } = await api.get('/appointments');
         setAppointments(data);
-        if (Array.isArray(data) && data.length > 0) {
-          if (contactIdParam) {
+        if (contactIdParam) {
+          if (Array.isArray(data) && data.length > 0) {
             const matched = data.find(a => {
               const cId = user?.role === 'Doctor' ? a.patient?._id : a.doctor?._id;
               return cId === contactIdParam;
@@ -91,7 +91,9 @@ const Communication = () => {
               setHasJoined(false);
               setIsFullscreen(false);
             }
-          } else if (autoSelectAppointmentId) {
+          }
+        } else if (autoSelectAppointmentId) {
+          if (Array.isArray(data) && data.length > 0) {
             const matched = data.find(a => a._id === autoSelectAppointmentId);
             if (matched) {
               setSelectedContact(matched);
@@ -101,6 +103,14 @@ const Communication = () => {
               setIsFullscreen(false);
             }
           }
+        } else {
+          // If no search param or state is set, clear the active workspace to return to grid list
+          setSelectedContact(null);
+          setRoomId('');
+          setMessages([]);
+          setHasJoined(false);
+          setIsFullscreen(false);
+          setActiveOffer(null);
         }
       } catch (err) {
         console.error(err);
