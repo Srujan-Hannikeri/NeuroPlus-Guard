@@ -22,6 +22,7 @@ const Communication = () => {
   const [aiNotes, setAiNotes] = useState('');
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const recognitionRef = useRef(null);
+  const messagesEndRef = useRef(null);
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -147,6 +148,13 @@ const Communication = () => {
     const interval = setInterval(fetchMessagesAndSignal, 2500);
     return () => clearInterval(interval);
   }, [roomId, hasJoined]);
+
+  // Auto-scroll to the bottom of the chat list when messages update
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length, selectedContact]);
 
   const selectContact = (appt) => {
     const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
@@ -1114,6 +1122,7 @@ const Communication = () => {
                       );
                     })
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 <form onSubmit={handleSend} className="chat-input-container">
