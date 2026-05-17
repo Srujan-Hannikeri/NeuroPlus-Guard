@@ -500,38 +500,10 @@ const Communication = () => {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: '0 4px', boxSizing: 'border-box' }}>
       
       {/* 1. Navbar */}
-      <nav className="nav-bar" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+      <nav className="nav-bar" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button 
-            onClick={() => {
-              if (user?.role === 'Doctor') {
-                navigate('/doctor-dashboard');
-              } else {
-                navigate('/patient-dashboard');
-              }
-            }}
-            className="back-btn-responsive"
-            style={{
-              background: 'rgba(15, 130, 135, 0.08)',
-              border: 'none',
-              color: 'var(--primary)',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '8px 16px',
-              borderRadius: '24px',
-              fontSize: '0.85rem'
-            }}
-          >
-            ← Back to Dashboard
-          </button>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Logo width={32} height={32} />
-            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Consultation & Chat</h2>
-          </div>
+          <Logo width={40} height={40} />
+          <h2>Consultation & Chat</h2>
         </div>
       </nav>
 

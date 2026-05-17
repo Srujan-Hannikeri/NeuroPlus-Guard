@@ -1,17 +1,18 @@
 import React from 'react';
 import Sidebar from './Sidebar';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 const Layout = ({ children }) => {
   const location = useLocation();
-  const isConsultation = location.pathname === '/consultation';
+  const [searchParams] = useSearchParams();
+  const isChatting = location.pathname === '/consultation' && searchParams.get('contactId');
 
   return (
-    <div className={`app-layout${isConsultation ? ' chatting-active' : ''}`}>
+    <div className={`app-layout${isChatting ? ' chatting-active' : ''}`}>
       <Sidebar />
       <main
-        className={`main-content${isConsultation ? ' consultation-main' : ''}`}
-        style={isConsultation ? { padding: '16px', maxWidth: '100%', flex: 1 } : undefined}
+        className={`main-content${isChatting || location.pathname === '/consultation' ? ' consultation-main' : ''}`}
+        style={isChatting ? { padding: '16px', maxWidth: '100%', flex: 1 } : undefined}
       >
         {children}
       </main>
