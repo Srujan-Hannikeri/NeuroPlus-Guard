@@ -262,15 +262,42 @@ body {
   }
 
   .nav-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px 0;
-    margin-bottom: 24px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 0;
+    margin-bottom: 20px;
+  }
+
+  .nav-bar h2 {
+    font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-bar button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
   }
 
   .grid-cards {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .glass-panel {
+    padding: 16px !important;
+    border-radius: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+  
+  .stat-card h3 {
+    font-size: 1.5rem;
   }
 
   .auth-card {
