@@ -33,6 +33,8 @@ const Communication = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [isAudioCall, setIsAudioCall] = useState(false);
+  const [newMessageCounts, setNewMessageCounts] = useState({});
+  const [lastReadCounts, setLastReadCounts] = useState({});
 
   // Polling tracking refs
   const hasOffered = useRef(false);
@@ -106,12 +108,36 @@ const Communication = () => {
     if (contactId) {
       setSearchParams({ contactId });
     }
+    const rId = `room-${appt._id}`;
+    // Mark this room as read
+    setLastReadCounts(prev => ({ ...prev, [rId]: newMessageCounts[rId] || 0 }));
     setSelectedContact(appt);
-    setRoomId(`room-${appt._id}`);
+    setRoomId(rId);
     setMessages([]);
     setHasJoined(false);
     setIsFullscreen(false);
   };
+
+  // Poll all rooms for new message counts when on list view
+  useEffect(() => {
+    if (selectedContact) return;
+    const apptList = Array.isArray(appointments) ? appointments : [];
+    if (apptList.length === 0) return;
+    const pollAllRooms = async () => {
+      const counts = {};
+      await Promise.all(apptList.map(async appt => {
+        const rId = `room-${appt._id}`;
+        try {
+          const { data } = await api.get(`/communication/${rId}`);
+          counts[rId] = data.messages?.length || 0;
+        } catch {}
+      }));
+      setNewMessageCounts(prev => ({ ...prev, ...counts }));
+    };
+    pollAllRooms();
+    const interval = setInterval(pollAllRooms, 5000);
+    return () => clearInterval(interval);
+  }, [selectedContact, appointments]);
 
   const exitNativeFullscreen = () => {
     try {
@@ -358,7 +384,7 @@ const Communication = () => {
   };
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: '1200px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="dashboard-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       
       {/* 1. Navbar */}
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>
@@ -433,75 +459,91 @@ const Communication = () => {
               }
 
               return (
-                <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+                <div style={{ display: 'grid', gap: '14px', gridTemplateColumns: '1fr' }}>
                   {filtered.map(appt => {
                     const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
                     const contactName = user?.role === 'Doctor' 
                       ? appt.patient?.name 
                       : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
                     const isOnline = isContactOnline(contactId);
+                    const cardRoomId = `room-${appt._id}`;
+                    const hasNewMsg = (newMessageCounts[cardRoomId] || 0) > (lastReadCounts[cardRoomId] || 0);
+                    const newMsgCount = Math.max(0, (newMessageCounts[cardRoomId] || 0) - (lastReadCounts[cardRoomId] || 0));
 
                     return (
                       <div 
                         key={appt._id}
                         className="glass-panel" 
                         style={{ 
-                          padding: '16px', 
-                          borderRadius: '12px', 
-                          border: '1px solid var(--glass-border)',
-                          background: '#fff',
+                          padding: '16px 20px', 
+                          borderRadius: '14px', 
+                          border: hasNewMsg ? '1.5px solid var(--primary)' : '1px solid var(--glass-border)',
+                          background: hasNewMsg ? 'rgba(15,130,135,0.03)' : '#fff',
                           display: 'flex',
-                          flexDirection: 'column',
-                          gap: '12px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: '16px',
+                          boxShadow: hasNewMsg ? '0 4px 20px rgba(15,130,135,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
+                          transition: 'all 0.2s ease'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ position: 'relative', display: 'flex' }}>
-                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '1rem' }}>
-                              {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
-                            </div>
-                            <span style={{
-                              position: 'absolute',
-                              bottom: '-2px',
-                              right: '-2px',
-                              width: '12px',
-                              height: '12px',
-                              borderRadius: '50%',
-                              background: isOnline ? '#10b981' : '#94a3b8',
-                              border: '2px solid #fff',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
-                            }} />
+                        {/* Avatar with online dot */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                            {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '0.92rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {contactName}
-                            </h4>
-                            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {user?.role === 'Doctor' ? 'Patient Profile' : (appt.doctor?.specialization || 'General Physician')}
-                            </p>
-                          </div>
+                          <span style={{
+                            position: 'absolute',
+                            bottom: '-1px',
+                            right: '-1px',
+                            width: '13px',
+                            height: '13px',
+                            borderRadius: '50%',
+                            background: isOnline ? '#10b981' : '#94a3b8',
+                            border: '2px solid #fff',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+                          }} />
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
-                          <span style={{ 
-                            fontSize: '0.7rem', 
-                            padding: '2px 8px', 
-                            borderRadius: '10px', 
-                            background: isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)', 
-                            color: isOnline ? '#10b981' : '#64748b',
-                            fontWeight: 'bold'
-                          }}>
-                            {isOnline ? '● Online' : '○ Offline'}
-                          </span>
-                          
+                        {/* Name & status */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {contactName}
+                          </h4>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: isOnline ? '#10b981' : 'var(--text-muted)', fontWeight: isOnline ? '600' : '400' }}>
+                            {isOnline ? '● Online' : '○ Offline'} &nbsp;·&nbsp; {user?.role === 'Doctor' ? 'Patient' : (appt.doctor?.specialization || 'General Physician')}
+                          </p>
+                          {hasNewMsg && (
+                            <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--primary)', animation: 'pulse 1.5s infinite' }} />
+                              {newMsgCount} new message{newMsgCount > 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* New msg badge + Chat button */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                          {hasNewMsg && (
+                            <span style={{
+                              background: 'var(--primary)',
+                              color: '#fff',
+                              borderRadius: '50%',
+                              width: '22px',
+                              height: '22px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.7rem',
+                              fontWeight: 'bold',
+                              flexShrink: 0
+                            }}>{newMsgCount > 9 ? '9+' : newMsgCount}</span>
+                          )}
                           <button 
                             onClick={() => selectContact(appt)}
                             className="btn-primary"
-                            style={{ padding: '6px 14px', fontSize: '0.8rem', borderRadius: '20px', background: 'var(--primary)' }}
+                            style={{ padding: '8px 18px', fontSize: '0.85rem', borderRadius: '24px', background: hasNewMsg ? 'var(--primary)' : 'var(--secondary)', whiteSpace: 'nowrap' }}
                           >
-                            Chat & Consult
+                            {hasNewMsg ? '💬 Reply' : 'Chat & Consult'}
                           </button>
                         </div>
                       </div>
@@ -519,26 +561,27 @@ const Communication = () => {
           {/* Workspace Header containing Voice Call and Video Call Actions */}
           <div className="glass-panel" style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', border: '1px solid var(--glass-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {/* Symmetrical Back to List Button for both Desktop and Mobile */}
-              <button 
-                onClick={() => {
-                  setSearchParams({});
-                  setSelectedContact(null);
-                }}
-                className="back-btn-responsive"
-                style={{
-                  background: 'rgba(15, 130, 135, 0.08)',
-                  border: 'none',
-                  color: 'var(--primary)',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                ← Back
-              </button>
+              {/* Left contact info block — stacks vertically on mobile */}
+              <div className="chat-header-left">
+                {/* Back button: mobile only, appears above name */}
+                <button 
+                  onClick={() => {
+                    setSearchParams({});
+                    setSelectedContact(null);
+                  }}
+                  className="back-btn-responsive"
+                  style={{
+                    background: 'rgba(15, 130, 135, 0.08)',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  ← Back
+                </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ position: 'relative', display: 'flex' }}>
@@ -572,6 +615,7 @@ const Communication = () => {
                   </p>
                 </div>
               </div>
+              </div>{/* end chat-header-left */}
             </div>
 
             {!hasJoined && (

@@ -431,14 +431,24 @@ body {
   }
 
   .back-btn-responsive {
+    display: flex !important; /* Visible on mobile */
     padding: 4px 8px !important;
     font-size: 0.7rem !important;
     border-radius: 12px !important;
+    margin-bottom: 4px;
+  }
+
+  /* Mobile: chat-header-left stacks vertically (back btn above name) */
+  .chat-header-left {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
   }
 
   .chat-send-btn {
-    width: 48px !important;
-    height: 48px !important;
+    width: 52px !important;
+    height: 52px !important;
   }
 }
 
@@ -471,9 +481,22 @@ body {
 }
 
 .back-btn-responsive {
-  padding: 8px 14px;
-  font-size: 0.82rem;
-  border-radius: 24px;
+  display: none; /* Hidden on desktop */
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  border-radius: 12px;
+}
+
+/* Desktop: chat-header-left = regular horizontal row */
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
 }
 
 /* Pulsating Avatar for Voice Call */
