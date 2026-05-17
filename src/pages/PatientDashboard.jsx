@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
-import { Search, FileText, Bot, Video, User } from 'lucide-react';
+import { Search, FileText, Bot, Video, User, MessageSquare } from 'lucide-react';
 
 const PatientDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -183,13 +183,23 @@ const PatientDashboard = () => {
                     <p style={{ fontSize: '0.85rem', color: activeAppointment.status === 'Accepted' ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
                       Status: {activeAppointment.status}
                     </p>
-                    {activeAppointment.status === 'Accepted' && activeAppointment.scheduledAt ? (
+                    {activeAppointment.status === 'Accepted' && activeAppointment.scheduledAt && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '4px' }}>
                         Scheduled: {new Date(activeAppointment.scheduledAt).toLocaleString()}
                       </p>
-                    ) : (
+                    )}
+                    {activeAppointment.status === 'Accepted' && (
+                      <button 
+                        onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: activeAppointment._id } })}
+                        className="btn-primary" 
+                        style={{ marginTop: '8px', width: '100%', padding: '8px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--primary)' }}
+                      >
+                        <MessageSquare size={14} /> Start Call & Chat
+                      </button>
+                    )}
+                    {activeAppointment.status === 'Pending' && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        You already have an active request.
+                        Waiting for doctor's approval.
                       </p>
                     )}
                   </div>

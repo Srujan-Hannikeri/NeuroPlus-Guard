@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
-import { Users, Clock, CheckCircle, User } from 'lucide-react';
+import { Users, Clock, CheckCircle, User, MessageSquare, Video } from 'lucide-react';
 
 const DoctorDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -165,8 +165,8 @@ const DoctorDashboard = () => {
                       onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: appt._id } })}
                       className="btn-primary" 
                       disabled={appt.status === 'Pending'}
-                      style={{ padding: '8px 16px', fontSize: '0.9rem', opacity: appt.status === 'Pending' ? 0.5 : 1 }}>
-                      Join Video Call
+                      style={{ padding: '8px 16px', fontSize: '0.9rem', opacity: appt.status === 'Pending' ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--primary)' }}>
+                      <MessageSquare size={14} /> Start Call & Chat
                     </button>
                   </div>
                 </div>
