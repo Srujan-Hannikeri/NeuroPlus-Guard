@@ -1,21 +1,19 @@
 @echo off
 echo =========================================
-echo Setting up NeuroPlus Guard Application
+echo Setting up NeuroPlus Guard
 echo =========================================
 
 echo Installing Backend Dependencies...
-cd backend
+cd api
 call npm install
 cd ..
 
 echo.
 echo Installing Frontend Dependencies...
-cd frontend
 call npm install
-cd ..
 
 echo.
-echo =========================================
-echo Setup Complete! You can now run start.bat
+echo Setup Complete!
+echo You can now run start.bat to launch the application.
 echo =========================================
 pause
