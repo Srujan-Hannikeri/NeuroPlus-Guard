@@ -26,6 +26,8 @@ const Communication = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
+  const videoContainerRef = useRef(null);
+  
   const [stream, setStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [hasJoined, setHasJoined] = useState(false);
@@ -176,6 +178,25 @@ const Communication = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Synchronize fullscreen exit state natively (e.g. Esc key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement
+      );
+      if (!isCurrentlyFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   const exitNativeFullscreen = () => {
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -192,18 +213,27 @@ const Communication = () => {
     setIsFullscreen(fullscreenMode);
     setShowCallConfirm(false);
     setHasJoined(true);
-    
-    if (fullscreenMode) {
-      const docEl = document.documentElement;
-      try {
-        if (docEl.requestFullscreen) {
-          docEl.requestFullscreen().catch(err => {});
-        } else if (docEl.webkitRequestFullscreen) {
-          docEl.webkitRequestFullscreen().catch(err => {});
-        }
-      } catch (err) {}
-    }
   };
+
+  // Launch browser native full screen on the video container div itself
+  useEffect(() => {
+    if (hasJoined && isFullscreen && videoContainerRef.current) {
+      const el = videoContainerRef.current;
+      try {
+        if (el.requestFullscreen) {
+          el.requestFullscreen().catch(err => {
+            console.error("Fullscreen request failed", err);
+          });
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen().catch(err => {
+            console.error("Webkit Fullscreen request failed", err);
+          });
+        }
+      } catch (err) {
+        console.error("Fullscreen error", err);
+      }
+    }
+  }, [hasJoined, isFullscreen]);
 
   const createPeer = (currentStream) => {
     const peer = new RTCPeerConnection({
@@ -343,58 +373,44 @@ const Communication = () => {
     }
   };
 
-  const toggleTranscription = () => {
-    if (isTranscribing) {
-      recognitionRef.current?.stop();
-      setIsTranscribing(false);
-    } else {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Speech Recognition is not supported in this browser.");
-        return;
-      }
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.onresult = (event) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript + ' ';
-        }
-        setTranscription(prev => prev + ' ' + currentTranscript);
-      };
-      recognition.start();
-      recognitionRef.current = recognition;
-      setIsTranscribing(true);
-    }
-  };
-
-  const generateAINotes = async () => {
-    if (!transcription.trim()) return alert("No transcription available to generate notes.");
-    setIsGeneratingNotes(true);
-    try {
-      const formData = new FormData();
-      formData.append('prompt', `Generate a brief medical summary/notes from this consultation transcript: ${transcription}`);
-      const res = await axios.post(`${API_BASE_URL}/ai/chat`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setAiNotes(res.data.reply);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to generate notes.");
-    } finally {
-      setIsGeneratingNotes(false);
-    }
-  };
-
   const endCall = () => {
+    // 1. Stop all media stream tracks to fully switch off the camera/webcam and microphone
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log(`Successfully stopped media track: ${track.kind}`);
+      });
     }
-    if (recognitionRef.current) recognitionRef.current.stop();
-    if (pollingInterval.current) clearInterval(pollingInterval.current);
+    // Also stop local stream ref directly just to be 100% sure
+    if (localVideoRef.current && localVideoRef.current.srcObject) {
+      const localStream = localVideoRef.current.srcObject;
+      localStream.getTracks().forEach(track => track.stop());
+      localVideoRef.current.srcObject = null;
+    }
+    
+    // 2. Clear transcription recognizer
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+    
+    // 3. Clear the active room signal polling interval
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+    }
+    
+    // 4. Clean exit from browser native fullscreen window
     exitNativeFullscreen();
-    navigate(-1);
+    setIsFullscreen(false);
+    
+    // 5. Reset all streams, visual states, and return to full-width card list grid smoothly
+    setStream(null);
+    setRemoteStream(null);
+    setHasJoined(false);
+    setSelectedContact(null);
+    setRoomId('');
+    setSearchParams({});
   };
 
   const handleSend = async (e) => {
@@ -745,12 +761,22 @@ const Communication = () => {
             
             {/* Video Block (Visible only when call is active) */}
             {hasJoined && (
-              <div className={`glass-panel ${isFullscreen ? 'fullscreen-video' : ''}`} style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
-                <div style={{ flex: 1, backgroundColor: '#000', borderRadius: '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <div 
+                ref={videoContainerRef}
+                className={`glass-panel ${isFullscreen ? 'fullscreen-video' : ''}`} 
+                style={{ 
+                  flex: isFullscreen ? 'none' : 2, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  overflow: 'hidden', 
+                  padding: '0 !important' 
+                }}
+              >
+                <div style={{ flex: 1, backgroundColor: '#000', borderRadius: isFullscreen ? '0' : '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   
                   {isAudioCall ? (
                     /* Beautiful Pulsating Audio Call UI */
-                    <div style={{ flex: 1, width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', borderRadius: '12px 12px 0 0', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', borderRadius: isFullscreen ? '0' : '12px 12px 0 0', position: 'relative', overflow: 'hidden' }}>
                       <div className="pulse-avatar" style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(15, 130, 135, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--primary)', position: 'relative' }}>
                         <User size={48} color="var(--primary)" />
                         <span className="pulse-ring" style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid var(--primary)', opacity: 0.8 }} />
@@ -798,7 +824,7 @@ const Communication = () => {
                   )}
                 </div>
                 
-                {/* Video Controls */}
+                {/* Video Controls (Strictly removed Transcribe button) */}
                 <div className="call-controls" style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderTop: '1px solid var(--glass-border)', background: 'var(--card-bg)' }}>
                   <button onClick={toggleMute} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isMuted ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -810,9 +836,6 @@ const Communication = () => {
                     </button>
                   )}
 
-                  <button onClick={toggleTranscription} style={{ padding: '0 12px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: isTranscribing ? '#10b981' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem' }}>
-                    {isTranscribing ? 'Stop Transcribing' : 'Transcribe'}
-                  </button>
                   <button onClick={endCall} style={{ width: '48px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: 'var(--error)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <PhoneOff size={16} />
                   </button>
@@ -891,27 +914,6 @@ const Communication = () => {
                     <Send size={16} />
                   </button>
                 </form>
-
-                {/* AI Notes Section */}
-                {hasJoined && (
-                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--glass-border)', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI Consultation Notes</h5>
-                      <button onClick={generateAINotes} disabled={isGeneratingNotes || !transcription} className="btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
-                        {isGeneratingNotes ? '...' : 'Generate'}
-                      </button>
-                    </div>
-                    {aiNotes ? (
-                      <div style={{ fontSize: '0.75rem', color: '#334155', maxHeight: '60px', overflowY: 'auto', background: '#fff', padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                        {aiNotes}
-                      </div>
-                    ) : (
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
-                        {transcription ? "Click generate to create AI summary." : "Transcribe call to generate notes."}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             )}
             
