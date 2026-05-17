@@ -668,12 +668,16 @@ const Communication = () => {
               <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
                 <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                    <MessageSquare size={14} color="var(--primary)" />
-                   <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '0.85rem' }}>Chat Consultation Room</h4>
+                   <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '0.85rem' }}>
+                      Chat with {user?.role === 'Doctor' ? selectedContact.patient?.name : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
+                   </h4>
                 </div>
 
                 <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.2)' }}>
                   {messages.length === 0 ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', marginTop: '20px' }}>No messages yet. Send a message to start chatting!</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', marginTop: '20px' }}>
+                      No messages with {user?.role === 'Doctor' ? selectedContact.patient?.name : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`} yet. Send a message to start direct consulting!
+                    </p>
                   ) : (
                     messages.map((msg, idx) => {
                       const isMe = msg.senderId === user._id;
