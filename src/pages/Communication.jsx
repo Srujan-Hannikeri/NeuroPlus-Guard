@@ -58,26 +58,6 @@ const Communication = () => {
               setHasJoined(false);
               setIsFullscreen(false);
             }
-          } else {
-            // Find the unique appointments like the sidebar does to select a valid active one
-            const uniqueContacts = [];
-            const seenIds = new Set();
-            data.forEach(appt => {
-              const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
-              if (contactId && !seenIds.has(contactId)) {
-                seenIds.add(contactId);
-                uniqueContacts.push(appt);
-              }
-            });
-
-            if (uniqueContacts.length > 0) {
-              const firstActive = uniqueContacts.find(a => a.status === 'Accepted') || uniqueContacts[0];
-              setSelectedContact(firstActive);
-              setRoomId(`room-${firstActive._id}`);
-              setMessages([]);
-              setHasJoined(false);
-              setIsFullscreen(false);
-            }
           }
         }
       } catch (err) {
