@@ -486,13 +486,13 @@ body {
     height: 52px !important;
   }
 
-  .chatting-active .sidebar {
-    display: none !important;
-  }
-
   .consultation-main {
     padding: 6px !important;
   }
+}
+
+.chatting-active .sidebar {
+  display: none !important;
 }
 
 /* Consultation & Chat Layout General Classes */

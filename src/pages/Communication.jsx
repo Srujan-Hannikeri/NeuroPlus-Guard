@@ -732,27 +732,29 @@ const Communication = () => {
           <div className="glass-panel" style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', border: '1px solid var(--glass-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div className="chat-header-left">
-                {/* Back button: mobile only, completely hidden on PC/Desktop */}
-                {isMobile && (
-                  <button 
-                    onClick={() => {
-                      setSearchParams({});
-                      setSelectedContact(null);
-                    }}
-                    className="back-btn-responsive"
-                    style={{
-                      background: 'rgba(15, 130, 135, 0.08)',
-                      border: 'none',
-                      color: 'var(--primary)',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    ← Back
-                  </button>
-                )}
+                {/* Back button: rendered on both PC/Desktop and Mobile for seamless navigation */}
+                <button 
+                  onClick={() => {
+                    setSearchParams({});
+                    setSelectedContact(null);
+                  }}
+                  className="back-btn-responsive"
+                  style={{
+                    background: 'rgba(15, 130, 135, 0.08)',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    marginRight: '8px'
+                  }}
+                >
+                  ← Back
+                </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ position: 'relative', display: 'flex' }}>
