@@ -120,7 +120,7 @@ const DoctorDashboard = () => {
         <div style={{ padding: '24px' }}>
           <h3 style={{ color: 'var(--primary)', marginBottom: '16px' }}>Upcoming & Pending Consultations</h3>
           
-          {appointments.length === 0 ? (
+          {(!Array.isArray(appointments) || appointments.length === 0) ? (
             <p style={{ color: 'var(--text-muted)' }}>No consultations available at the moment.</p>
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>

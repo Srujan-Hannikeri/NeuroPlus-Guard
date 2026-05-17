@@ -161,7 +161,8 @@ const PatientDashboard = () => {
         ) : (
           <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
             {doctors.map(doctor => {
-              const activeAppointment = appointments.find(a => a.doctor?._id === doctor._id && (a.status === 'Pending' || a.status === 'Accepted'));
+              const apptList = Array.isArray(appointments) ? appointments : [];
+              const activeAppointment = apptList.find(a => a.doctor?._id === doctor._id && (a.status === 'Pending' || a.status === 'Accepted'));
               return (
               <div key={doctor._id} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>

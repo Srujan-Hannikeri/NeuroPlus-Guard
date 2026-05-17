@@ -387,9 +387,10 @@ const Communication = () => {
           {/* Connected Contacts Cards Grid */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
             {(() => {
+              const apptList = Array.isArray(appointments) ? appointments : [];
               const uniqueContacts = [];
               const seenIds = new Set();
-              appointments.forEach(appt => {
+              apptList.forEach(appt => {
                 const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
                 if (contactId && !seenIds.has(contactId)) {
                   seenIds.add(contactId);

@@ -64,11 +64,14 @@ exports.getAppointments = async (req, res) => {
       // Filter out duplicate patient requests, keeping only the latest one
       const seenPatients = new Set();
       appointments = appointments.filter(appt => {
+        if (!appt.patient || !appt.patient._id) return false;
         const patientId = appt.patient._id.toString();
         if (seenPatients.has(patientId)) return false;
         seenPatients.add(patientId);
         return true;
       });
+    } else {
+      appointments = appointments.filter(appt => appt.doctor && appt.doctor._id);
     }
 
     res.json(appointments);
