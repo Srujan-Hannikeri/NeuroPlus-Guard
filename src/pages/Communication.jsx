@@ -720,17 +720,27 @@ const Communication = () => {
                                 alignItems: 'center',
                                 gap: '4px'
                               }}>
-                                {lastMessages[cardRoomId].senderId === user._id && (
-                                  lastMessages[cardRoomId].seen ? (
-                                    <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', display: 'inline-flex' }} title="Seen">
-                                      ✓✓
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '0.75rem', display: 'inline-flex' }} title="Delivered">
-                                      ✓
-                                    </span>
-                                  )
-                                )}
+                                {lastMessages[cardRoomId].senderId === user._id && (() => {
+                                  if (lastMessages[cardRoomId].seen) {
+                                    return (
+                                      <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', display: 'inline-flex' }} title="Seen">
+                                        ✓✓
+                                      </span>
+                                    );
+                                  } else if (isOnline) {
+                                    return (
+                                      <span style={{ color: 'var(--text-muted)', opacity: 0.75, fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', display: 'inline-flex' }} title="Delivered">
+                                        ✓✓
+                                      </span>
+                                    );
+                                  } else {
+                                    return (
+                                      <span style={{ color: 'var(--text-muted)', opacity: 0.5, fontWeight: 'bold', fontSize: '0.75rem', display: 'inline-flex' }} title="Sent">
+                                        ✓
+                                      </span>
+                                    );
+                                  }
+                                })()}
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {lastMessages[cardRoomId].senderId === user._id ? 'You: ' : ''}{lastMessages[cardRoomId].text}
                                 </span>
@@ -1075,17 +1085,30 @@ const Communication = () => {
                             marginTop: '2px'
                           }}>
                             {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                            {isMe && (
-                              msg.seen ? (
-                                <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', marginLeft: '2px' }} title="Seen">
-                                  ✓✓
-                                </span>
-                              ) : (
-                                <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', fontSize: '0.75rem', marginLeft: '2px' }} title="Delivered">
-                                  ✓
-                                </span>
-                              )
-                            )}
+                            {isMe && (() => {
+                              const recipientId = user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id;
+                              const isCounterpartOnline = isContactOnline(recipientId);
+                              
+                              if (msg.seen) {
+                                return (
+                                  <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', marginLeft: '2px' }} title="Seen">
+                                    ✓✓
+                                  </span>
+                                );
+                              } else if (isCounterpartOnline) {
+                                return (
+                                  <span style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', marginLeft: '2px' }} title="Delivered">
+                                    ✓✓
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span style={{ color: 'rgba(255,255,255,0.45)', fontWeight: 'bold', fontSize: '0.75rem', marginLeft: '2px' }} title="Sent">
+                                    ✓
+                                  </span>
+                                );
+                              }
+                            })()}
                           </span>
                         </div>
                       );
