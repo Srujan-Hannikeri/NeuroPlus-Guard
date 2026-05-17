@@ -328,9 +328,9 @@ const Communication = () => {
       {/* Main Container */}
       <div className="consultation-container" style={{ display: 'flex', flex: 1, gap: '20px', overflow: 'hidden', paddingBottom: '16px' }}>
         
-        {/* 1. Left Contact Sidebar (Hidden on mobile if a contact is selected) */}
-        <div className={`chat-sidebar glass-panel ${selectedContact ? 'mobile-hidden' : ''}`} style={{ width: '300px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px', borderBottom: '1px solid var(--glass-border)' }}>
+        {/* 1. Left Contact Sidebar (Compact icon list on mobile) */}
+        <div className="chat-sidebar glass-panel" style={{ width: '300px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="sidebar-header" style={{ padding: '12px', borderBottom: '1px solid var(--glass-border)' }}>
             <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '1.1rem' }}>
               {user?.role === 'Doctor' ? 'My Patients' : 'My Doctors'}
             </h3>
@@ -392,7 +392,7 @@ const Communication = () => {
                     <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>
                       {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div className="contact-details" style={{ flex: 1, overflow: 'hidden' }}>
                       <p style={{ fontWeight: '600', margin: 0, color: 'var(--text-main)', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactName}</p>
                       <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>Consultation active</p>
                     </div>
@@ -404,7 +404,7 @@ const Communication = () => {
         </div>
 
         {/* 2. Right Workspace (Chat + Video Area) */}
-        <div className={`workspace-panel ${!selectedContact ? 'mobile-hidden' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="workspace-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
           {!selectedContact ? (
             <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
@@ -420,13 +420,6 @@ const Communication = () => {
               {/* Workspace Header */}
               <div className="glass-panel" style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <button 
-                    onClick={() => setSelectedContact(null)} 
-                    className="mobile-only btn-primary" 
-                    style={{ padding: '6px 12px', fontSize: '0.75rem', background: '#cbd5e1', color: '#1e293b' }}
-                  >
-                    ← Back
-                  </button>
                   <div>
                     <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem' }}>
                       {user?.role === 'Doctor' ? selectedContact.patient?.name : `Dr. ${selectedContact.doctor?.name}`}

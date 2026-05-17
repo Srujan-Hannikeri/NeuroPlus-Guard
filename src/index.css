@@ -394,21 +394,33 @@ body {
     display: inline-flex !important;
   }
 
-  .mobile-hidden {
-    display: none !important;
-  }
-
   .consultation-container {
-    gap: 0 !important;
+    gap: 8px !important;
     padding-bottom: 76px !important; /* Spacing for fixed bottom nav bar */
   }
 
   .chat-sidebar {
-    width: 100% !important;
+    width: 60px !important;
+    padding: 8px 0 !important;
+  }
+
+  .sidebar-header {
+    display: none !important;
+  }
+
+  .contact-details {
+    display: none !important;
+  }
+
+  .contact-item {
+    justify-content: center !important;
+    padding: 6px !important;
+    border: none !important;
   }
 
   .workspace-panel {
-    width: 100% !important;
+    flex: 1 !important;
+    width: calc(100% - 60px) !important;
   }
 }
 
