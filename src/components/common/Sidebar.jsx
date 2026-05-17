@@ -58,7 +58,7 @@ const Sidebar = () => {
             className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
           >
             {item.icon}
-            {item.name}
+            <span className="sidebar-text">{item.name}</span>
           </NavLink>
         ))}
       </nav>

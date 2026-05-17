@@ -199,17 +199,20 @@ body {
 
   .sidebar {
     width: 100%;
-    height: auto;
+    height: 60px;
     flex-direction: row;
     position: fixed;
     bottom: 0;
     top: auto;
     z-index: 100;
-    padding: 8px;
+    padding: 0 12px;
     border-right: none;
     border-top: 1px solid var(--glass-border);
     justify-content: space-around;
     align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   /* Hide the NeuroPlus logo in bottom nav */
@@ -217,39 +220,40 @@ body {
     display: none !important;
   }
 
-  /* Make nav links compact */
+  /* Make nav links compact and fill width */
   .sidebar nav {
     flex-direction: row !important;
-    gap: 4px !important;
-    flex: unset !important;
+    width: 100%;
+    justify-content: space-around;
+    gap: 0 !important;
+    flex: 1 !important;
+  }
+
+  .sidebar-text {
+    display: none;
   }
 
   .sidebar-item {
-    flex-direction: column;
-    padding: 6px 8px;
-    gap: 4px;
-    font-size: 0.75rem;
-    min-width: 60px;
-    text-align: center;
+    padding: 10px;
+    border-radius: 50%;
+    min-width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    transition: all 0.2s ease;
   }
 
   .sidebar-item svg {
     margin: 0 auto;
+    width: 22px;
+    height: 22px;
   }
 
-  /* Profile toggle in bottom nav */
+  /* Hide double profile button in mobile bottom nav */
   .sidebar > div:last-child {
-    margin-top: 0 !important;
-  }
-  
-  .sidebar > div:last-child > div[style*="padding: 12px"] {
-    padding: 6px !important;
-    min-width: unset;
-  }
-  
-  /* Hide user name and just show icon in bottom nav profile */
-  .sidebar > div:last-child > div[style*="padding: 12px"] > div > div:last-child {
-    display: none;
+    display: none !important;
   }
 
   .main-content {

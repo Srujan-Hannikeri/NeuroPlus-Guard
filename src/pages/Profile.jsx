@@ -7,13 +7,18 @@ import { API_URL } from '../config';
 import { User } from 'lucide-react';
 
 const Profile = () => {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, setUser, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [upiId, setUpiId] = useState(user?.upiId || '');
   const [qrFile, setQrFile] = useState(null);
   const [profilePicFile, setProfilePicFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -182,6 +187,11 @@ const Profile = () => {
               Cancel
             </button>
           </div>
+        )}
+        {!isEditing && (
+          <button onClick={handleLogout} className="btn-primary" style={{ width: '100%', marginTop: '24px', background: 'var(--error)' }}>
+            Sign Out
+          </button>
         )}
       </div>
     </div>
