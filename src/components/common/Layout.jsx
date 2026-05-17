@@ -5,13 +5,14 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 const Layout = ({ children }) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const isChatting = location.pathname === '/consultation' && searchParams.get('contactId');
+  const isConsultation = location.pathname === '/consultation';
+  const isChatting = isConsultation && searchParams.get('contactId');
 
   return (
-    <div className={`app-layout${isChatting ? ' chatting-active' : ''}`}>
+    <div className={`app-layout${isConsultation ? ' consultation-layout-active' : ''}${isChatting ? ' chatting-active' : ''}`}>
       <Sidebar />
       <main
-        className={`main-content${isChatting || location.pathname === '/consultation' ? ' consultation-main' : ''}`}
+        className={`main-content${isConsultation ? ' consultation-main' : ''}`}
         style={isChatting ? { padding: '16px', maxWidth: '100%', flex: 1 } : undefined}
       >
         {children}

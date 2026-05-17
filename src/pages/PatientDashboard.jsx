@@ -58,6 +58,7 @@ const PatientDashboard = () => {
   const getPendingMedicines = () => {
     const pending = [];
     const todayObj = new Date();
+    if (!Array.isArray(prescriptions)) return pending;
     prescriptions.forEach(p => {
       // Check if logged today for the current timeOfDay
       const logged = p.history?.some(h => {
@@ -68,13 +69,15 @@ const PatientDashboard = () => {
                h.timeOfDay === currentTimeOfDay;
       });
       if (!logged) {
-        p.medicines.forEach(m => {
-          if ((currentTimeOfDay === 'Morning' && m.morning) ||
-              (currentTimeOfDay === 'Afternoon' && m.afternoon) ||
-              (currentTimeOfDay === 'Night' && m.night)) {
-            pending.push({ prescId: p._id, medName: m.name });
-          }
-        });
+        if (Array.isArray(p.medicines)) {
+          p.medicines.forEach(m => {
+            if ((currentTimeOfDay === 'Morning' && m.morning) ||
+                (currentTimeOfDay === 'Afternoon' && m.afternoon) ||
+                (currentTimeOfDay === 'Night' && m.night)) {
+              pending.push({ prescId: p._id, medName: m.name });
+            }
+          });
+        }
       }
     });
     return pending;
