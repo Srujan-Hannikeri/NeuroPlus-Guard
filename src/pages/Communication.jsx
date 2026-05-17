@@ -420,7 +420,7 @@ const Communication = () => {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: isMobile ? '0 4px' : '0 16px', boxSizing: 'border-box' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: '0 4px', boxSizing: 'border-box' }}>
       
       {/* 1. Navbar */}
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>
@@ -573,9 +573,25 @@ const Communication = () => {
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
-                                maxWidth: '95%'
+                                maxWidth: '95%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}>
-                                {lastMessages[cardRoomId].senderId === user._id ? 'You: ' : ''}{lastMessages[cardRoomId].text}
+                                {lastMessages[cardRoomId].senderId === user._id && (
+                                  lastMessages[cardRoomId].seen ? (
+                                    <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', display: 'inline-flex' }} title="Seen">
+                                      ✓✓
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '0.75rem', display: 'inline-flex' }} title="Delivered">
+                                      ✓
+                                    </span>
+                                  )
+                                )}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {lastMessages[cardRoomId].senderId === user._id ? 'You: ' : ''}{lastMessages[cardRoomId].text}
+                                </span>
                               </p>
                             ) : (
                               hasNewMsg && (

@@ -102,7 +102,7 @@ body {
 
 /* Consultation page: override main-content padding for full width cards */
 .consultation-main {
-  padding: 16px !important;
+  padding: 6px !important;
   overflow-x: hidden !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
