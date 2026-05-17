@@ -388,5 +388,69 @@ body {
     font-size: 0.85rem;
     float: left;
   }
+
+  /* Responsive styling updates for consultation */
+  .mobile-only {
+    display: inline-flex !important;
+  }
+
+  .mobile-hidden {
+    display: none !important;
+  }
+
+  .consultation-container {
+    gap: 0 !important;
+    padding-bottom: 76px !important; /* Spacing for fixed bottom nav bar */
+  }
+
+  .chat-sidebar {
+    width: 100% !important;
+  }
+
+  .workspace-panel {
+    width: 100% !important;
+  }
+}
+
+/* Consultation & Chat Layout General Classes */
+.consultation-container {
+  display: flex;
+  flex: 1;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.chat-sidebar {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workspace-panel {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.contact-item:hover {
+  background: rgba(15, 130, 135, 0.05) !important;
+}
+
+/* Fullscreen Video consultation style */
+.fullscreen-video {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  background: #000 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.fullscreen-video video {
+  max-height: 100vh !important;
+}
+
+.mobile-only {
+  display: none;
 }
 
