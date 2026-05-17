@@ -321,6 +321,7 @@ body {
     width: 100% !important;
     height: auto !important;
     max-height: unset !important;
+    overflow: visible !important;
   }
   
   .communication-layout video {
