@@ -506,10 +506,7 @@ const Communication = () => {
                 style={{
                   background: 'rgba(15, 130, 135, 0.08)',
                   border: 'none',
-                  padding: '8px 14px',
-                  borderRadius: '24px',
                   color: 'var(--primary)',
-                  fontSize: '0.82rem',
                   fontWeight: 'bold',
                   cursor: 'pointer',
                   display: 'flex',
