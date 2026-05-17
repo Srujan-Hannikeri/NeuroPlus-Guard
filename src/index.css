@@ -492,8 +492,10 @@ body {
   }
 }
 
-.chatting-active .sidebar {
-  display: none !important;
+@media (max-width: 768px) {
+  .chatting-active .sidebar {
+    display: none !important;
+  }
 }
 
 /* Consultation & Chat Layout General Classes */
@@ -739,12 +741,12 @@ body {
   width: 100% !important;
 }
 
-/* consultation layout active forces bottom navigation bar style ONLY on mobile devices */
+/* consultation layout active forces bottom navigation bar style ONLY on mobile */
 @media (max-width: 768px) {
   .consultation-layout-active.app-layout {
     flex-direction: column !important;
   }
-  
+
   .consultation-layout-active .sidebar {
     width: 100% !important;
     height: 60px !important;
@@ -762,11 +764,11 @@ body {
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
   }
-  
+
   .consultation-layout-active .sidebar > div:first-child {
     display: none !important;
   }
-  
+
   .consultation-layout-active .sidebar nav {
     flex-direction: row !important;
     width: 100% !important;
@@ -774,11 +776,11 @@ body {
     gap: 0 !important;
     flex: 1 !important;
   }
-  
+
   .consultation-layout-active .sidebar-text {
     display: none !important;
   }
-  
+
   .consultation-layout-active .sidebar-item {
     padding: 10px !important;
     border-radius: 50% !important;
@@ -790,25 +792,20 @@ body {
     gap: 0 !important;
     transition: all 0.2s ease !important;
   }
-  
+
   .consultation-layout-active .sidebar-item svg {
     margin: 0 auto !important;
     width: 22px !important;
     height: 22px !important;
   }
-  
+
   .consultation-layout-active .sidebar > div:last-child {
     display: none !important;
   }
-  
+
   .consultation-layout-active .main-content {
     padding: 16px !important;
     padding-bottom: 90px !important; /* Space for bottom nav */
-  }
-
-  /* Hide bottom nav bar on mobile during active messaging to maximize room space */
-  .chatting-active .sidebar {
-    display: none !important;
   }
 }
 

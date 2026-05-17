@@ -41,6 +41,8 @@ const Communication = () => {
   const [lastMessages, setLastMessages] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [activeOffer, setActiveOffer] = useState(null);
+  const [isInitiator, setIsInitiator] = useState(false);
+  const [globalIncomingCall, setGlobalIncomingCall] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -129,12 +131,6 @@ const Communication = () => {
         if (data.messages) {
           setMessages(data.messages);
           setNewMessageCounts(prev => ({ ...prev, [roomId]: 0 }));
-
-          // If there are unread messages from counterpart while the room is open, mark them as seen
-          const hasUnseen = data.messages.some(msg => msg.senderId !== user?._id && !msg.seen);
-          if (hasUnseen) {
-            await api.post(`/communication/${roomId}/seen`).catch(() => {});
-          }
         }
         // Sync active offer state
         if (data.offer && !data.answer) {
@@ -150,22 +146,14 @@ const Communication = () => {
 
     const interval = setInterval(fetchMessagesAndSignal, 2500);
     return () => clearInterval(interval);
-  }, [roomId, hasJoined, user]);
+  }, [roomId, hasJoined]);
 
-  const selectContact = async (appt) => {
+  const selectContact = (appt) => {
     const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
     if (contactId) {
       setSearchParams({ contactId });
     }
     const rId = `room-${appt._id}`;
-    
-    // Explicitly mark this room's messages as read on the backend
-    try {
-      await api.post(`/communication/${rId}/seen`);
-    } catch (err) {
-      console.error("Seen API error:", err);
-    }
-
     // Mark this room as read immediately in frontend state
     setNewMessageCounts(prev => ({ ...prev, [rId]: 0 }));
     setSelectedContact(appt);
@@ -176,14 +164,16 @@ const Communication = () => {
     setActiveOffer(null);
   };
 
-  // Poll all rooms for new message counts when on list view
+  // Poll all rooms for new message counts and incoming calls globally
   useEffect(() => {
-    if (selectedContact) return;
+    if (hasJoined) return; // Skip background room polling when user is actively on a live call
     const apptList = Array.isArray(appointments) ? appointments : [];
     if (apptList.length === 0) return;
     const pollAllRooms = async () => {
       const counts = {};
       const lastMsgs = {};
+      let activeCallIncoming = null;
+
       await Promise.all(apptList.map(async appt => {
         const rId = `room-${appt._id}`;
         try {
@@ -193,15 +183,27 @@ const Communication = () => {
           if (data.messages && data.messages.length > 0) {
             lastMsgs[rId] = data.messages[data.messages.length - 1];
           }
+
+          // Call incoming detection: if there is an active offer, no answer, and we are not the sender
+          if (data.offer && !data.answer && data.offer.senderId !== user?._id) {
+            activeCallIncoming = {
+              appointment: appt,
+              roomId: rId,
+              offer: data.offer
+            };
+          }
         } catch {}
       }));
+
       setNewMessageCounts(prev => ({ ...prev, ...counts }));
       setLastMessages(prev => ({ ...prev, ...lastMsgs }));
+      setGlobalIncomingCall(activeCallIncoming);
     };
+
     pollAllRooms();
     const interval = setInterval(pollAllRooms, 5000);
     return () => clearInterval(interval);
-  }, [selectedContact, appointments, user]);
+  }, [appointments, user, hasJoined]);
 
   // Send heartbeat every 20s so others can see us as online
   useEffect(() => {
@@ -310,15 +312,20 @@ const Communication = () => {
         peer = createPeer(currentStream);
         peerRef.current = peer;
 
-        // Force Doctor to be the offerer to avoid race conditions
-        if (user?.role === 'Doctor') {
+        // Whoever initiated the call is the offerer to support role-independent calls
+        if (isInitiator) {
           peer.onnegotiationneeded = async () => {
             if (hasOffered.current) return;
             hasOffered.current = true;
             try {
               const offer = await peer.createOffer();
               await peer.setLocalDescription(offer);
-              await api.post(`/communication/${roomId}/signal`, { offer: peer.localDescription });
+              const offerPayload = {
+                type: peer.localDescription.type,
+                sdp: peer.localDescription.sdp,
+                senderId: user._id
+              };
+              await api.post(`/communication/${roomId}/signal`, { offer: offerPayload });
             } catch (error) {
               console.error("Negotiation needed error", error);
             }
@@ -333,7 +340,7 @@ const Communication = () => {
             // Auto-Disconnect detection: if counterpart ended call, their endCall cleared signaling.
             // When we poll and see no active offer/answer but we are inside call, we shut down too!
             // We gate this check by hasOffered/hasAnswered to avoid startup race conditions.
-            const isNegotiated = user?.role === 'Doctor' ? hasOffered.current : hasAnswered.current;
+            const isNegotiated = isInitiator ? hasOffered.current : hasAnswered.current;
             if (isNegotiated && !data.offer && !data.answer) {
               if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
@@ -361,8 +368,8 @@ const Communication = () => {
               setMessages(data.messages);
             }
 
-            // If Patient, answer the offer
-            if (user?.role === 'Patient' && data.offer && !hasAnswered.current) {
+            // If not initiator, answer the offer
+            if (!isInitiator && data.offer && !hasAnswered.current) {
               hasAnswered.current = true;
               await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
               const answer = await peer.createAnswer();
@@ -370,8 +377,8 @@ const Communication = () => {
               await api.post(`/communication/${roomId}/signal`, { answer: peer.localDescription });
             }
 
-            // If Doctor, accept the answer
-            if (user?.role === 'Doctor' && data.answer && hasOffered.current && peer.signalingState !== 'stable') {
+            // If initiator, accept the answer
+            if (isInitiator && data.answer && hasOffered.current && peer.signalingState !== 'stable') {
               await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
             }
 
@@ -520,6 +527,61 @@ const Communication = () => {
           <h2>Consultation & Chat</h2>
         </div>
       </nav>
+
+      {/* Global Incoming Call Alert Banner */}
+      {globalIncomingCall && (!selectedContact || roomId !== globalIncomingCall.roomId) && (
+        <div 
+          onClick={() => {
+            setIsAudioCall(globalIncomingCall.offer.type === 'audio');
+            setIsInitiator(false);
+            selectContact(globalIncomingCall.appointment);
+            setTimeout(() => {
+              initiateCall(false);
+            }, 150);
+          }}
+          className="pulse-incoming-call"
+          style={{
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: '#fff',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
+            marginBottom: '16px',
+            animation: 'pulse 2.5s infinite',
+            zIndex: 9999,
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Phone size={20} style={{ animation: 'bounce 1s infinite' }} />
+            <div>
+              <h5 style={{ margin: 0, fontWeight: 'bold', fontSize: '0.92rem', letterSpacing: '0.3px' }}>
+                Incoming Consultation Call from {user?.role === 'Doctor' ? globalIncomingCall.appointment.patient?.name : `Dr. ${globalIncomingCall.appointment.doctor?.name?.replace(/^Dr\.\s*/i, '')}`}
+              </h5>
+              <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.95 }}>Click here to answer and join the secure voice/video session immediately.</p>
+            </div>
+          </div>
+          <button 
+            style={{ 
+              background: '#fff', 
+              color: '#10b981', 
+              border: 'none', 
+              padding: '6px 16px', 
+              borderRadius: '20px', 
+              fontSize: '0.78rem', 
+              fontWeight: 'bold', 
+              cursor: 'pointer', 
+              boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+            }}
+          >
+            Answer Call
+          </button>
+        </div>
+      )}
 
       {/* 2. Mutually Exclusive View Rendering */}
       {!selectedContact ? (
@@ -797,6 +859,7 @@ const Communication = () => {
                 <button 
                   onClick={() => {
                     setIsAudioCall(true);
+                    setIsInitiator(true);
                     setShowCallConfirm(true);
                   }}
                   className="btn-primary" 
@@ -807,6 +870,7 @@ const Communication = () => {
                 <button 
                   onClick={() => {
                     setIsAudioCall(false);
+                    setIsInitiator(true);
                     setShowCallConfirm(true);
                   }}
                   className="btn-primary" 
@@ -925,7 +989,8 @@ const Communication = () => {
                     <div 
                       onClick={() => {
                         setIsAudioCall(activeOffer.type === 'audio');
-                        setShowCallConfirm(true);
+                        setIsInitiator(false);
+                        initiateCall(false);
                       }}
                       className="pulse-incoming-call"
                       style={{

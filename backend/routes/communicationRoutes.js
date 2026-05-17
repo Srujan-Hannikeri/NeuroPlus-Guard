@@ -4,37 +4,47 @@ const Room = require('../models/Room');
 const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 
-// Get room state without modifying seen status (safe for grid/list polling!)
-router.get('/:roomId', protect, async (req, res) => {
+// Get list of online user IDs (seen in last 30s)
+router.get('/online-users', protect, async (req, res) => {
   try {
-    let room = await Room.findOne({ roomId: req.params.roomId });
-    if (!room) {
-      room = await Room.create({ roomId: req.params.roomId });
-    }
-    res.json(room);
+    const cutoff = new Date(Date.now() - 30000);
+    const onlineUsers = await User.find({ lastActive: { $gte: cutoff } }, '_id');
+    const online = onlineUsers.map(u => u._id.toString());
+    res.json({ onlineUserIds: online });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Explicitly mark all incoming messages in a room as seen (called when opening the chat room)
-router.post('/:roomId/seen', protect, async (req, res) => {
+// Heartbeat — called by frontend every 20s to mark user as online
+router.post('/heartbeat', protect, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, { lastActive: new Date() });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get room state
+router.get('/:roomId', protect, async (req, res) => {
   try {
     let room = await Room.findOne({ roomId: req.params.roomId });
-    if (!room) return res.status(404).json({ message: 'Room not found' });
-
-    let updated = false;
-    room.messages.forEach(msg => {
-      if (msg.senderId !== req.user._id.toString() && !msg.seen) {
-        msg.seen = true;
-        updated = true;
+    if (!room) {
+      room = await Room.create({ roomId: req.params.roomId });
+    } else {
+      let updated = false;
+      room.messages.forEach(msg => {
+        if (msg.senderId !== req.user._id.toString() && !msg.seen) {
+          msg.seen = true;
+          updated = true;
+        }
+      });
+      if (updated) {
+        await room.save();
       }
-    });
-
-    if (updated) {
-      await room.save();
     }
-    res.json({ success: true, room });
+    res.json(room);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -84,28 +94,6 @@ router.post('/:roomId/message', protect, async (req, res) => {
 
     await room.save();
     res.json(room);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Heartbeat — called by frontend every 20s to mark user as online
-router.post('/heartbeat', protect, async (req, res) => {
-  try {
-    await User.findByIdAndUpdate(req.user._id, { lastActive: new Date() });
-    res.json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get list of online user IDs (seen in last 30s)
-router.get('/online-users', protect, async (req, res) => {
-  try {
-    const cutoff = new Date(Date.now() - 30000);
-    const onlineUsers = await User.find({ lastActive: { $gte: cutoff } }, '_id');
-    const online = onlineUsers.map(u => u._id.toString());
-    res.json({ onlineUserIds: online });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
