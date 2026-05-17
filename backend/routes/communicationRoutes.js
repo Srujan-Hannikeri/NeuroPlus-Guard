@@ -9,6 +9,17 @@ router.get('/:roomId', protect, async (req, res) => {
     let room = await Room.findOne({ roomId: req.params.roomId });
     if (!room) {
       room = await Room.create({ roomId: req.params.roomId });
+    } else {
+      let updated = false;
+      room.messages.forEach(msg => {
+        if (msg.senderId !== req.user._id.toString() && !msg.seen) {
+          msg.seen = true;
+          updated = true;
+        }
+      });
+      if (updated) {
+        await room.save();
+      }
     }
     res.json(room);
   } catch (error) {

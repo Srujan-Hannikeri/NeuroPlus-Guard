@@ -101,6 +101,8 @@ const Communication = () => {
         const { data } = await api.get(`/communication/${roomId}`);
         if (data.messages) {
           setMessages(data.messages);
+          setLastReadCounts(prev => ({ ...prev, [roomId]: data.messages.length }));
+          setNewMessageCounts(prev => ({ ...prev, [roomId]: data.messages.length }));
         }
       } catch (err) {
         console.error("Chat polling error:", err);
@@ -161,7 +163,7 @@ const Communication = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Poll online users list every 15s
+  // Poll online users list every 5s
   useEffect(() => {
     const fetchOnline = async () => {
       try {
@@ -170,7 +172,7 @@ const Communication = () => {
       } catch {}
     };
     fetchOnline();
-    const interval = setInterval(fetchOnline, 15000);
+    const interval = setInterval(fetchOnline, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -829,8 +831,37 @@ const Communication = () => {
                         <div 
                           key={idx} 
                           className={`chat-message ${isMe ? 'me' : 'other'}`}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                            position: 'relative',
+                            maxWidth: '75%'
+                          }}
                         >
-                          {msg.text}
+                          <span style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>{msg.text}</span>
+                          <span style={{ 
+                            fontSize: '0.65rem', 
+                            color: isMe ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)', 
+                            alignSelf: 'flex-end',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginTop: '2px'
+                          }}>
+                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {isMe && (
+                              msg.seen ? (
+                                <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '0.75rem', letterSpacing: '-1.5px', marginLeft: '2px' }} title="Seen">
+                                  ✓✓
+                                </span>
+                              ) : (
+                                <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', fontSize: '0.75rem', marginLeft: '2px' }} title="Delivered">
+                                  ✓
+                                </span>
+                              )
+                            )}
+                          </span>
                         </div>
                       );
                     })
