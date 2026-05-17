@@ -127,7 +127,7 @@ const Communication = () => {
     
     const fetchMessagesAndSignal = async () => {
       try {
-        const { data } = await api.get(`/communication/${roomId}`);
+        const { data } = await api.get(`/communication/${roomId}?markAsSeen=true`);
         if (data.messages) {
           setMessages(data.messages);
           setNewMessageCounts(prev => ({ ...prev, [roomId]: 0 }));
@@ -335,7 +335,7 @@ const Communication = () => {
         // Start polling the stateless API every 2 seconds
         pollingInterval.current = setInterval(async () => {
           try {
-            const { data } = await api.get(`/communication/${roomId}`);
+            const { data } = await api.get(`/communication/${roomId}?markAsSeen=true`);
             
             // Auto-Disconnect detection: if counterpart ended call, their endCall cleared signaling.
             // When we poll and see no active offer/answer but we are inside call, we shut down too!

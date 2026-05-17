@@ -32,7 +32,7 @@ router.get('/:roomId', protect, async (req, res) => {
     let room = await Room.findOne({ roomId: req.params.roomId });
     if (!room) {
       room = await Room.create({ roomId: req.params.roomId });
-    } else {
+    } else if (req.query.markAsSeen === 'true') {
       let updated = false;
       room.messages.forEach(msg => {
         if (msg.senderId !== req.user._id.toString() && !msg.seen) {
