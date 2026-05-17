@@ -100,6 +100,35 @@ body {
   padding: 0;
 }
 
+/* Consultation page: override main-content padding for full width cards */
+.consultation-main {
+  padding: 16px !important;
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Contact card list - full width single column */
+.contact-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Each contact card row */
+.contact-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .app-layout {
   display: flex;
   min-height: 100vh;
@@ -268,6 +297,7 @@ body {
 
   .dashboard-container {
     padding: 12px;
+    overflow-x: hidden;
   }
 
   .nav-bar {
@@ -454,6 +484,14 @@ body {
   .chat-send-btn {
     width: 52px !important;
     height: 52px !important;
+  }
+
+  .chatting-active .sidebar {
+    display: none !important;
+  }
+
+  .consultation-main {
+    padding: 6px !important;
   }
 }
 

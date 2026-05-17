@@ -36,6 +36,14 @@ const Communication = () => {
   const [newMessageCounts, setNewMessageCounts] = useState({});
   const [lastReadCounts, setLastReadCounts] = useState({});
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  const [lastMessages, setLastMessages] = useState({});
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Polling tracking refs
   const hasOffered = useRef(false);
@@ -126,14 +134,19 @@ const Communication = () => {
     if (apptList.length === 0) return;
     const pollAllRooms = async () => {
       const counts = {};
+      const lastMsgs = {};
       await Promise.all(apptList.map(async appt => {
         const rId = `room-${appt._id}`;
         try {
           const { data } = await api.get(`/communication/${rId}`);
           counts[rId] = data.messages?.length || 0;
+          if (data.messages && data.messages.length > 0) {
+            lastMsgs[rId] = data.messages[data.messages.length - 1];
+          }
         } catch {}
       }));
       setNewMessageCounts(prev => ({ ...prev, ...counts }));
+      setLastMessages(prev => ({ ...prev, ...lastMsgs }));
     };
     pollAllRooms();
     const interval = setInterval(pollAllRooms, 5000);
@@ -405,18 +418,26 @@ const Communication = () => {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: '0 16px', boxSizing: 'border-box' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: isMobile ? '0 4px' : '0 16px', boxSizing: 'border-box' }}>
       
       {/* 1. Navbar */}
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => {
-          if (selectedContact) {
-            setSearchParams({});
-            setSelectedContact(null);
-          } else {
-            navigate(-1);
-          }
-        }}>
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            cursor: isMobile ? 'pointer' : 'default' 
+          }} 
+          onClick={isMobile ? () => {
+            if (selectedContact) {
+              setSearchParams({});
+              setSelectedContact(null);
+            } else {
+              navigate(-1);
+            }
+          } : undefined}
+        >
           <Logo width={40} height={40} />
           <h2>Consultation & Chat</h2>
         </div>
@@ -480,7 +501,7 @@ const Communication = () => {
               }
 
               return (
-                <div style={{ display: 'grid', gap: '14px', gridTemplateColumns: '1fr' }}>
+                <div className="contact-card-grid">
                   {filtered.map(appt => {
                     const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
                     const contactName = user?.role === 'Doctor' 
@@ -494,78 +515,113 @@ const Communication = () => {
                     return (
                       <div 
                         key={appt._id}
-                        className="glass-panel" 
+                        className="glass-panel contact-card" 
+                        onClick={() => selectContact(appt)}
                         style={{ 
-                          padding: '16px 20px', 
+                          padding: '14px 18px', 
                           borderRadius: '14px', 
                           border: hasNewMsg ? '1.5px solid var(--primary)' : '1px solid var(--glass-border)',
                           background: hasNewMsg ? 'rgba(15,130,135,0.03)' : '#fff',
-                          display: 'flex',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: '16px',
                           boxShadow: hasNewMsg ? '0 4px 20px rgba(15,130,135,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
-                          transition: 'all 0.2s ease'
+                          transition: 'all 0.2s ease',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          boxSizing: 'border-box'
                         }}
                       >
-                        {/* Avatar with online dot */}
-                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                            {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
-                          </div>
-                          <span style={{
-                            position: 'absolute',
-                            bottom: '-1px',
-                            right: '-1px',
-                            width: '13px',
-                            height: '13px',
-                            borderRadius: '50%',
-                            background: isOnline ? '#10b981' : '#94a3b8',
-                            border: '2px solid #fff',
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
-                          }} />
-                        </div>
-
-                        {/* Name & status */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {contactName}
-                          </h4>
-                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: isOnline ? '#10b981' : 'var(--text-muted)', fontWeight: isOnline ? '600' : '400' }}>
-                            {isOnline ? '● Online' : '○ Offline'} &nbsp;·&nbsp; {user?.role === 'Doctor' ? 'Patient' : (appt.doctor?.specialization || 'General Physician')}
-                          </p>
-                          {hasNewMsg && (
-                            <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--primary)', animation: 'pulse 1.5s infinite' }} />
-                              {newMsgCount} new message{newMsgCount > 1 ? 's' : ''}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* New msg badge + Chat button */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                          {hasNewMsg && (
+                        {/* Left portion: Avatar + Text details */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
+                          {/* Avatar with online dot */}
+                          <div style={{ position: 'relative', flexShrink: 0 }}>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                              {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+                            </div>
                             <span style={{
-                              background: 'var(--primary)',
-                              color: '#fff',
+                              position: 'absolute',
+                              bottom: '-1px',
+                              right: '-1px',
+                              width: '13px',
+                              height: '13px',
                               borderRadius: '50%',
-                              width: '22px',
-                              height: '22px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.7rem',
-                              fontWeight: 'bold',
-                              flexShrink: 0
-                            }}>{newMsgCount > 9 ? '9+' : newMsgCount}</span>
+                              background: isOnline ? '#10b981' : '#94a3b8',
+                              border: '2px solid #fff',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+                            }} />
+                          </div>
+
+                          {/* Text Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <h4 style={{ margin: 0, color: 'var(--secondary)', fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {contactName}
+                            </h4>
+                            <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: isOnline ? '#10b981' : 'var(--text-muted)', fontWeight: isOnline ? '600' : '400' }}>
+                              {isOnline ? '● Online' : '○ Offline'} &nbsp;·&nbsp; {user?.role === 'Doctor' ? 'Patient' : (appt.doctor?.specialization || 'General Physician')}
+                            </p>
+                            
+                            {/* Latest Message Preview snippet */}
+                            {lastMessages[cardRoomId] ? (
+                              <p style={{ 
+                                margin: '6px 0 0', 
+                                fontSize: '0.82rem', 
+                                color: hasNewMsg ? 'var(--primary)' : 'var(--text-muted)', 
+                                fontWeight: hasNewMsg ? '600' : '400',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: '95%'
+                              }}>
+                                {lastMessages[cardRoomId].senderId === user._id ? 'You: ' : ''}{lastMessages[cardRoomId].text}
+                              </p>
+                            ) : (
+                              hasNewMsg && (
+                                <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--primary)', animation: 'pulse 1.5s infinite' }} />
+                                  {newMsgCount} new message{newMsgCount > 1 ? 's' : ''}
+                                </p>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right portion: Badge & Action */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                          {hasNewMsg ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                              <span style={{
+                                background: 'var(--primary)',
+                                color: '#fff',
+                                borderRadius: '12px',
+                                padding: '2px 8px',
+                                fontSize: '0.7rem',
+                                fontWeight: 'bold',
+                                animation: 'pulse 1.5s infinite',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                Reply
+                              </span>
+                              <span style={{
+                                background: 'var(--primary)',
+                                color: '#fff',
+                                borderRadius: '50%',
+                                width: '20px',
+                                height: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.7rem',
+                                fontWeight: 'bold'
+                              }}>
+                                {newMsgCount}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="desktop-only" style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+                              Chat &nbsp;→
+                            </span>
                           )}
-                          <button 
-                            onClick={() => selectContact(appt)}
-                            className="btn-primary"
-                            style={{ padding: '8px 18px', fontSize: '0.85rem', borderRadius: '24px', background: hasNewMsg ? 'var(--primary)' : 'var(--secondary)', whiteSpace: 'nowrap' }}
-                          >
-                            {hasNewMsg ? '💬 Reply' : 'Chat & Consult'}
-                          </button>
                         </div>
                       </div>
                     );
@@ -585,24 +641,26 @@ const Communication = () => {
               {/* Left contact info block — stacks vertically on mobile */}
               <div className="chat-header-left">
                 {/* Back button: mobile only, appears above name */}
-                <button 
-                  onClick={() => {
-                    setSearchParams({});
-                    setSelectedContact(null);
-                  }}
-                  className="back-btn-responsive"
-                  style={{
-                    background: 'rgba(15, 130, 135, 0.08)',
-                    border: 'none',
-                    color: 'var(--primary)',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  ← Back
-                </button>
+                {isMobile && (
+                  <button 
+                    onClick={() => {
+                      setSearchParams({});
+                      setSelectedContact(null);
+                    }}
+                    className="back-btn-responsive"
+                    style={{
+                      background: 'rgba(15, 130, 135, 0.08)',
+                      border: 'none',
+                      color: 'var(--primary)',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    ← Back
+                  </button>
+                )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ position: 'relative', display: 'flex' }}>
