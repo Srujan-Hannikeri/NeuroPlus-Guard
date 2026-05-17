@@ -129,6 +129,12 @@ const Communication = () => {
         if (data.messages) {
           setMessages(data.messages);
           setNewMessageCounts(prev => ({ ...prev, [roomId]: 0 }));
+
+          // If there are unread messages from counterpart while the room is open, mark them as seen
+          const hasUnseen = data.messages.some(msg => msg.senderId !== user?._id && !msg.seen);
+          if (hasUnseen) {
+            await api.post(`/communication/${roomId}/seen`).catch(() => {});
+          }
         }
         // Sync active offer state
         if (data.offer && !data.answer) {
@@ -144,14 +150,22 @@ const Communication = () => {
 
     const interval = setInterval(fetchMessagesAndSignal, 2500);
     return () => clearInterval(interval);
-  }, [roomId, hasJoined]);
+  }, [roomId, hasJoined, user]);
 
-  const selectContact = (appt) => {
+  const selectContact = async (appt) => {
     const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
     if (contactId) {
       setSearchParams({ contactId });
     }
     const rId = `room-${appt._id}`;
+    
+    // Explicitly mark this room's messages as read on the backend
+    try {
+      await api.post(`/communication/${rId}/seen`);
+    } catch (err) {
+      console.error("Seen API error:", err);
+    }
+
     // Mark this room as read immediately in frontend state
     setNewMessageCounts(prev => ({ ...prev, [rId]: 0 }));
     setSelectedContact(appt);
