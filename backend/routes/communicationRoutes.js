@@ -28,20 +28,26 @@ router.get('/:roomId', protect, async (req, res) => {
   }
 });
 
-// Update SDP Offer or Answer
+// Update SDP Offer or Answer or Clear Signal State
 router.post('/:roomId/signal', protect, async (req, res) => {
   try {
-    const { offer, answer, candidate } = req.body;
+    const { offer, answer, candidate, clearSignal } = req.body;
     let room = await Room.findOne({ roomId: req.params.roomId });
     if (!room) room = new Room({ roomId: req.params.roomId });
 
-    if (offer) room.offer = offer;
-    if (answer) room.answer = answer;
-    if (candidate) {
-      room.iceCandidates.push({
-        senderId: req.user._id,
-        candidate
-      });
+    if (clearSignal) {
+      room.offer = undefined;
+      room.answer = undefined;
+      room.iceCandidates = [];
+    } else {
+      if (offer) room.offer = offer;
+      if (answer) room.answer = answer;
+      if (candidate) {
+        room.iceCandidates.push({
+          senderId: req.user._id,
+          candidate
+        });
+      }
     }
 
     await room.save();

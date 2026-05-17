@@ -40,6 +40,7 @@ const Communication = () => {
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const [lastMessages, setLastMessages] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [activeOffer, setActiveOffer] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -108,24 +109,30 @@ const Communication = () => {
     fetchAppointments();
   }, [autoSelectAppointmentId, contactIdParam, user]);
 
-  // Poll messages for active chat room even if call is not started
+  // Poll messages and signaling for active chat room even if call is not started
   useEffect(() => {
     if (!roomId || hasJoined) return;
     
-    const fetchMessages = async () => {
+    const fetchMessagesAndSignal = async () => {
       try {
         const { data } = await api.get(`/communication/${roomId}`);
         if (data.messages) {
           setMessages(data.messages);
           setNewMessageCounts(prev => ({ ...prev, [roomId]: 0 }));
         }
+        // Sync active offer state
+        if (data.offer && !data.answer) {
+          setActiveOffer(data.offer);
+        } else {
+          setActiveOffer(null);
+        }
       } catch (err) {
         console.error("Chat polling error:", err);
       }
     };
-    fetchMessages();
+    fetchMessagesAndSignal();
 
-    const interval = setInterval(fetchMessages, 2500);
+    const interval = setInterval(fetchMessagesAndSignal, 2500);
     return () => clearInterval(interval);
   }, [roomId, hasJoined]);
 
@@ -142,6 +149,7 @@ const Communication = () => {
     setMessages([]);
     setHasJoined(false);
     setIsFullscreen(false);
+    setActiveOffer(null);
   };
 
   // Poll all rooms for new message counts when on list view
@@ -208,6 +216,7 @@ const Communication = () => {
     setIsFullscreen(fullscreenMode);
     setShowCallConfirm(false);
     setHasJoined(true);
+    setActiveOffer(null);
     
     if (fullscreenMode) {
       setTimeout(() => {
@@ -264,6 +273,9 @@ const Communication = () => {
     
     let currentStream = null;
     let peer = null;
+    hasOffered.current = false;
+    hasAnswered.current = false;
+    processedCandidates.current.clear();
 
     const startMediaAndPolling = async () => {
       try {
@@ -294,6 +306,31 @@ const Communication = () => {
           try {
             const { data } = await api.get(`/communication/${roomId}`);
             
+            // Auto-Disconnect detection: if counterpart ended call, their endCall cleared signaling.
+            // When we poll and see no active offer/answer but we are inside call, we shut down too!
+            if (!data.offer && !data.answer) {
+              if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+              }
+              if (peerRef.current) {
+                peerRef.current.close();
+                peerRef.current = null;
+              }
+              if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
+              }
+              exitNativeFullscreen();
+              setIsFullscreen(false);
+              setStream(null);
+              setRemoteStream(null);
+              setHasJoined(false);
+              setSelectedContact(null);
+              setRoomId('');
+              setSearchParams({});
+              alert("The secure consultation call has been ended by the counterpart.");
+              return;
+            }
+
             // Handle Messages Sync
             if (data.messages && data.messages.length > 0) {
               setMessages(data.messages);
@@ -365,32 +402,6 @@ const Communication = () => {
     }
   };
 
-  const toggleTranscription = () => {
-    if (isTranscribing) {
-      recognitionRef.current?.stop();
-      setIsTranscribing(false);
-    } else {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert("Speech Recognition is not supported in this browser.");
-        return;
-      }
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.onresult = (event) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript + ' ';
-        }
-        setTranscription(prev => prev + ' ' + currentTranscript);
-      };
-      recognition.start();
-      recognitionRef.current = recognition;
-      setIsTranscribing(true);
-    }
-  };
-
   const generateAINotes = async () => {
     if (!transcription.trim()) return alert("No transcription available to generate notes.");
     setIsGeneratingNotes(true);
@@ -409,7 +420,7 @@ const Communication = () => {
     }
   };
 
-  // Close peer connections, turn off camera/microphone hardware, and return to grid list
+  // Close peer connections, turn off camera/microphone hardware, clear DB states, and return to grid list
   const endCall = () => {
     // 1. Stop all tracks in the active media stream (switches off camera & mic)
     if (stream) {
@@ -428,19 +439,44 @@ const Communication = () => {
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);
     }
-    // 5. Exit native fullscreen
+    
+    // 5. Clear call signaling state in MongoDB backend so counterpart's polling detects disconnection
+    if (roomId) {
+      api.post(`/communication/${roomId}/signal`, { clearSignal: true }).catch(err => {
+        console.error("Failed to clear signal state", err);
+      });
+    }
+
+    // 6. Exit native fullscreen
     exitNativeFullscreen();
     setIsFullscreen(false);
     
-    // 6. Reset local WebRTC and call states
+    // 7. Reset local WebRTC and call states
     setStream(null);
     setRemoteStream(null);
     setHasJoined(false);
+    setActiveOffer(null);
     
-    // 7. Reset selected contact to go back to Connected Contacts Grid list
+    // 8. Reset selected contact to go back to Connected Contacts Grid list
     setSelectedContact(null);
     setRoomId('');
     setSearchParams({});
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || !roomId) return;
+    
+    const messageText = input;
+    setInput('');
+    // Optimistic UI update
+    setMessages(prev => [...prev, { senderId: user._id, text: messageText }]);
+
+    try {
+      await api.post(`/communication/${roomId}/message`, { text: messageText });
+    } catch (error) {
+      console.error("Failed to send message", error);
+    }
   };
 
   // Real online check using heartbeat-tracked IDs
@@ -873,6 +909,41 @@ const Communication = () => {
                 </div>
 
                 <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.2)' }}>
+                  {/* Dynamic Incoming Call / Join Banner */}
+                  {activeOffer && !hasJoined && (
+                    <div 
+                      onClick={() => {
+                        setIsAudioCall(activeOffer.type === 'audio');
+                        setShowCallConfirm(true);
+                      }}
+                      className="pulse-incoming-call"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        padding: '12px 18px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+                        marginBottom: '12px',
+                        animation: 'pulse 2.5s infinite'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Phone size={18} style={{ animation: 'bounce 1s infinite' }} />
+                        <div>
+                          <h5 style={{ margin: 0, fontWeight: 'bold', fontSize: '0.88rem' }}>Incoming Consultation Call</h5>
+                          <p style={{ margin: 0, fontSize: '0.72rem', opacity: 0.95 }}>Click here to connect your camera & microphone to join the secure session.</p>
+                        </div>
+                      </div>
+                      <span style={{ background: '#fff', color: '#10b981', padding: '4px 12px', borderRadius: '16px', fontSize: '0.72rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                        Join Call
+                      </span>
+                    </div>
+                  )}
+
                   {messages.length === 0 ? (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', marginTop: '20px' }}>
                       No messages with {user?.role === 'Doctor' ? selectedContact.patient?.name : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`} yet. Send a message to start direct consulting!

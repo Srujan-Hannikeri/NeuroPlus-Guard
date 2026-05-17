@@ -684,3 +684,32 @@ body {
   display: inline-block;
 }
 
+/* Native Fullscreen adjustments to prevent layout collapses */
+:fullscreen, :-webkit-full-screen {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: #000 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+:fullscreen .call-controls, :-webkit-full-screen .call-controls {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  z-index: 10000 !important;
+}
+
+:fullscreen video, :-webkit-full-screen video {
+  max-height: 100vh !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
