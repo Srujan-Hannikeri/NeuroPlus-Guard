@@ -161,8 +161,8 @@ const DoctorDashboard = () => {
                         </button>
                       </>
                     )}
-                    <button 
-                      onClick={() => navigate('/consultation')}
+                     <button 
+                      onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: appt._id } })}
                       className="btn-primary" 
                       disabled={appt.status === 'Pending'}
                       style={{ padding: '8px 16px', fontSize: '0.9rem', opacity: appt.status === 'Pending' ? 0.5 : 1 }}>

@@ -39,17 +39,30 @@ const Communication = () => {
   const processedCandidates = useRef(new Set());
   const pollingInterval = useRef(null);
 
+  const location = useLocation();
+  const autoSelectAppointmentId = location.state?.autoSelectAppointmentId;
+
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
         const { data } = await api.get('/appointments');
         setAppointments(data);
+        if (data.length > 0 && autoSelectAppointmentId) {
+          const matched = data.find(a => a._id === autoSelectAppointmentId);
+          if (matched) {
+            setSelectedContact(matched);
+            setRoomId(`room-${matched._id}`);
+            setMessages([]);
+            setHasJoined(false);
+            setIsFullscreen(false);
+          }
+        }
       } catch (err) {
         console.error(err);
       }
     };
     fetchAppointments();
-  }, []);
+  }, [autoSelectAppointmentId]);
 
   // Poll messages for active chat room even if call is not started
   useEffect(() => {
@@ -515,7 +528,10 @@ const Communication = () => {
                         messages.map((msg, idx) => {
                           const isMe = msg.senderId === user._id;
                           return (
-                            <div key={idx} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', background: isMe ? 'var(--primary)' : '#e2e8f0', color: isMe ? '#fff' : '#1e293b', padding: '6px 10px', borderRadius: '12px', maxWidth: '80%', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                            <div 
+                              key={idx} 
+                              className={`chat-message ${isMe ? 'me' : 'other'}`}
+                            >
                               {msg.text}
                             </div>
                           );
@@ -523,16 +539,17 @@ const Communication = () => {
                       )}
                     </div>
 
-                    <form onSubmit={handleSend} style={{ display: 'flex', padding: '8px', borderTop: '1px solid var(--glass-border)', gap: '6px' }}>
+                    <form onSubmit={handleSend} className="chat-input-container">
                       <input 
                         type="text" 
-                        className="input-field" 
-                        style={{ flex: 1, borderRadius: '8px', padding: '6px 10px', fontSize: '0.85rem' }}
+                        className="chat-input-field" 
                         placeholder="Type a message..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                       />
-                      <button type="submit" className="btn-primary" style={{ borderRadius: '8px', padding: '6px 12px', fontSize: '0.85rem' }}>Send</button>
+                      <button type="submit" className="chat-send-btn">
+                        <Send size={16} />
+                      </button>
                     </form>
 
                     {/* AI Notes Section */}
