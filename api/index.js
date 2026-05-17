@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const connectDB = require('./config/db');
+const connectDB = require('../backend/config/db');
 const fs = require('fs');
 
 // Ensure uploads directory exists
@@ -12,13 +12,13 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Route files
-const authRoutes = require('./routes/authRoutes');
-const doctorRoutes = require('./routes/doctorRoutes');
-const appointmentRoutes = require('./routes/appointmentRoutes');
-const reportRoutes = require('./routes/reportRoutes');
-const aiRoutes = require('./routes/aiRoutes');
-const prescriptionRoutes = require('./routes/prescriptionRoutes');
-const communicationRoutes = require('./routes/communicationRoutes');
+const authRoutes = require('../backend/routes/authRoutes');
+const doctorRoutes = require('../backend/routes/doctorRoutes');
+const appointmentRoutes = require('../backend/routes/appointmentRoutes');
+const reportRoutes = require('../backend/routes/reportRoutes');
+const aiRoutes = require('../backend/routes/aiRoutes');
+const prescriptionRoutes = require('../backend/routes/prescriptionRoutes');
+const communicationRoutes = require('../backend/routes/communicationRoutes');
 
 // Connect to database
 connectDB();
