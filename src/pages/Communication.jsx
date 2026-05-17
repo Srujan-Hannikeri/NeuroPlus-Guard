@@ -337,7 +337,6 @@ const Communication = () => {
               setSelectedContact(null);
               setRoomId('');
               setSearchParams({});
-              alert("The secure consultation call has been ended by the counterpart.");
               return;
             }
 
