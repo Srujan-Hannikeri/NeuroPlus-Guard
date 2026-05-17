@@ -26,7 +26,7 @@ const Communication = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
-  const videoContainerRef = useRef(null);
+  const videoCallContainerRef = useRef(null);
   
   const [stream, setStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -45,6 +45,20 @@ const Communication = () => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Sync fullscreen state with native browser escapes/events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      setIsFullscreen(isCurrentlyFullscreen);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
   }, []);
 
   // Polling tracking refs
@@ -178,25 +192,6 @@ const Communication = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Synchronize fullscreen exit state natively (e.g. Esc key)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = !!(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement
-      );
-      if (!isCurrentlyFullscreen) {
-        setIsFullscreen(false);
-      }
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-    };
-  }, []);
-
   const exitNativeFullscreen = () => {
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -213,27 +208,24 @@ const Communication = () => {
     setIsFullscreen(fullscreenMode);
     setShowCallConfirm(false);
     setHasJoined(true);
-  };
-
-  // Launch browser native full screen on the video container div itself
-  useEffect(() => {
-    if (hasJoined && isFullscreen && videoContainerRef.current) {
-      const el = videoContainerRef.current;
-      try {
-        if (el.requestFullscreen) {
-          el.requestFullscreen().catch(err => {
+    
+    if (fullscreenMode) {
+      setTimeout(() => {
+        const el = videoCallContainerRef.current;
+        if (el) {
+          try {
+            if (el.requestFullscreen) {
+              el.requestFullscreen().catch(err => {});
+            } else if (el.webkitRequestFullscreen) {
+              el.webkitRequestFullscreen().catch(err => {});
+            }
+          } catch (err) {
             console.error("Fullscreen request failed", err);
-          });
-        } else if (el.webkitRequestFullscreen) {
-          el.webkitRequestFullscreen().catch(err => {
-            console.error("Webkit Fullscreen request failed", err);
-          });
+          }
         }
-      } catch (err) {
-        console.error("Fullscreen error", err);
-      }
+      }, 150);
     }
-  }, [hasJoined, isFullscreen]);
+  };
 
   const createPeer = (currentStream) => {
     const peer = new RTCPeerConnection({
@@ -373,60 +365,82 @@ const Communication = () => {
     }
   };
 
-  const endCall = () => {
-    // 1. Stop all media stream tracks to fully switch off the camera/webcam and microphone
-    if (stream) {
-      stream.getTracks().forEach(track => {
-        track.stop();
-        console.log(`Successfully stopped media track: ${track.kind}`);
+  const toggleTranscription = () => {
+    if (isTranscribing) {
+      recognitionRef.current?.stop();
+      setIsTranscribing(false);
+    } else {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech Recognition is not supported in this browser.");
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (event) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript + ' ';
+        }
+        setTranscription(prev => prev + ' ' + currentTranscript);
+      };
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsTranscribing(true);
+    }
+  };
+
+  const generateAINotes = async () => {
+    if (!transcription.trim()) return alert("No transcription available to generate notes.");
+    setIsGeneratingNotes(true);
+    try {
+      const formData = new FormData();
+      formData.append('prompt', `Generate a brief medical summary/notes from this consultation transcript: ${transcription}`);
+      const res = await axios.post(`${API_BASE_URL}/ai/chat`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
+      setAiNotes(res.data.reply);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate notes.");
+    } finally {
+      setIsGeneratingNotes(false);
     }
-    // Also stop local stream ref directly just to be 100% sure
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const localStream = localVideoRef.current.srcObject;
-      localStream.getTracks().forEach(track => track.stop());
-      localVideoRef.current.srcObject = null;
+  };
+
+  // Close peer connections, turn off camera/microphone hardware, and return to grid list
+  const endCall = () => {
+    // 1. Stop all tracks in the active media stream (switches off camera & mic)
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
     }
-    
-    // 2. Clear transcription recognizer
+    // 2. Close peer connection
+    if (peerRef.current) {
+      peerRef.current.close();
+      peerRef.current = null;
+    }
+    // 3. Stop speech recognition
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
+      recognitionRef.current.stop();
     }
-    
-    // 3. Clear the active room signal polling interval
+    // 4. Clear polling interval
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);
     }
-    
-    // 4. Clean exit from browser native fullscreen window
+    // 5. Exit native fullscreen
     exitNativeFullscreen();
     setIsFullscreen(false);
     
-    // 5. Reset all streams, visual states, and return to full-width card list grid smoothly
+    // 6. Reset local WebRTC and call states
     setStream(null);
     setRemoteStream(null);
     setHasJoined(false);
+    
+    // 7. Reset selected contact to go back to Connected Contacts Grid list
     setSelectedContact(null);
     setRoomId('');
     setSearchParams({});
-  };
-
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || !roomId) return;
-    
-    const messageText = input;
-    setInput('');
-    // Optimistic UI update
-    setMessages(prev => [...prev, { senderId: user._id, text: messageText }]);
-
-    try {
-      await api.post(`/communication/${roomId}/message`, { text: messageText });
-    } catch (error) {
-      console.error("Failed to send message", error);
-    }
   };
 
   // Real online check using heartbeat-tracked IDs
@@ -762,14 +776,18 @@ const Communication = () => {
             {/* Video Block (Visible only when call is active) */}
             {hasJoined && (
               <div 
-                ref={videoContainerRef}
-                className={`glass-panel ${isFullscreen ? 'fullscreen-video' : ''}`} 
+                ref={videoCallContainerRef}
                 style={{ 
-                  flex: isFullscreen ? 'none' : 2, 
+                  flex: 2, 
                   display: 'flex', 
                   flexDirection: 'column', 
                   overflow: 'hidden', 
-                  padding: '0 !important' 
+                  padding: 0,
+                  backgroundColor: '#000',
+                  borderRadius: isFullscreen ? '0' : '12px',
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative'
                 }}
               >
                 <div style={{ flex: 1, backgroundColor: '#000', borderRadius: isFullscreen ? '0' : '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -824,7 +842,7 @@ const Communication = () => {
                   )}
                 </div>
                 
-                {/* Video Controls (Strictly removed Transcribe button) */}
+                {/* Video Controls (Removed Transcribe Button completely) */}
                 <div className="call-controls" style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderTop: '1px solid var(--glass-border)', background: 'var(--card-bg)' }}>
                   <button onClick={toggleMute} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isMuted ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -836,6 +854,7 @@ const Communication = () => {
                     </button>
                   )}
 
+                  {/* Red End Call button which shuts off hardware camera and goes back to grid list */}
                   <button onClick={endCall} style={{ width: '48px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: 'var(--error)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <PhoneOff size={16} />
                   </button>
@@ -914,6 +933,27 @@ const Communication = () => {
                     <Send size={16} />
                   </button>
                 </form>
+
+                {/* AI Notes Section */}
+                {hasJoined && (
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--glass-border)', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI Consultation Notes</h5>
+                      <button onClick={generateAINotes} disabled={isGeneratingNotes || !transcription} className="btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                        {isGeneratingNotes ? '...' : 'Generate'}
+                      </button>
+                    </div>
+                    {aiNotes ? (
+                      <div style={{ fontSize: '0.75rem', color: '#334155', maxHeight: '60px', overflowY: 'auto', background: '#fff', padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                        {aiNotes}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
+                        {transcription ? "Click generate to create AI summary." : "Transcribe call to generate notes."}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             
