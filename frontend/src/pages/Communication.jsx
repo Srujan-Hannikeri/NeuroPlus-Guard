@@ -4,16 +4,12 @@ import api from '../services/api';
 import Logo from '../components/common/Logo';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Phone, Video, Send, Mic, MicOff, VideoOff, PhoneOff, User, MessageSquare, ShieldCheck, Heart, Search } from 'lucide-react';
-import { API_URL, API_BASE_URL } from '../config';
-import io from 'socket.io-client';
+import { API_BASE_URL } from '../config';
 import axios from 'axios';
-
-const socket = io(API_URL);
 
 const Communication = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
   const [roomId, setRoomId] = useState(''); 
   const [appointments, setAppointments] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,6 +30,12 @@ const Communication = () => {
   const [remoteStream, setRemoteStream] = useState(null);
   const [hasJoined, setHasJoined] = useState(false);
 
+  // Polling tracking refs
+  const hasOffered = useRef(false);
+  const hasAnswered = useRef(false);
+  const processedCandidates = useRef(new Set());
+  const pollingInterval = useRef(null);
+
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
@@ -46,87 +48,7 @@ const Communication = () => {
     fetchAppointments();
   }, []);
 
-  useEffect(() => {
-    if (!hasJoined) return;
-    
-    let currentStream = null;
-    // Request camera and microphone access
-    const startMedia = async () => {
-      try {
-        currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setStream(currentStream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = currentStream;
-        }
-
-        socket.emit('join-room', roomId);
-
-        socket.on('user-connected', (userId) => {
-          // Another user connected, we create an offer
-          const peer = createPeer(userId, currentStream);
-          peerRef.current = peer;
-        });
-
-        socket.on('offer', async (payload) => {
-          const peer = createPeer(payload.caller, currentStream);
-          peerRef.current = peer;
-          const desc = new RTCSessionDescription(payload.sdp);
-          await peer.setRemoteDescription(desc);
-          const answer = await peer.createAnswer();
-          await peer.setLocalDescription(answer);
-          socket.emit('answer', {
-            target: payload.caller,
-            caller: socket.id,
-            sdp: peer.localDescription
-          });
-        });
-
-        socket.on('answer', (payload) => {
-          const peer = peerRef.current;
-          if (peer) {
-            const desc = new RTCSessionDescription(payload.sdp);
-            peer.setRemoteDescription(desc).catch(e => console.error(e));
-          }
-        });
-
-        socket.on('ice-candidate', (incoming) => {
-          const peer = peerRef.current;
-          if (peer) {
-            const candidate = new RTCIceCandidate(incoming.candidate);
-            peer.addIceCandidate(candidate).catch(e => console.error(e));
-          }
-        });
-
-        socket.on('receive-message', (payload) => {
-          if (payload.sender !== socket.id) {
-             setMessages(prev => [...prev, { sender: 'other', text: payload.text }]);
-          }
-        });
-
-      } catch (error) {
-        console.error("Error accessing media devices.", error);
-        alert("Unable to access camera or microphone. Please check your permissions.");
-      }
-    };
-    startMedia();
-
-    return () => {
-      socket.off('user-connected');
-      socket.off('offer');
-      socket.off('answer');
-      socket.off('ice-candidate');
-      socket.off('receive-message');
-      
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-      if (peerRef.current) {
-        peerRef.current.close();
-      }
-    };
-  }, [hasJoined]);
-
-  const createPeer = (targetUserId, currentStream) => {
+  const createPeer = (currentStream) => {
     const peer = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -134,12 +56,13 @@ const Communication = () => {
       ]
     });
 
-    peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('ice-candidate', {
-          target: targetUserId,
-          candidate: event.candidate
-        });
+    peer.onicecandidate = async (event) => {
+      if (event.candidate && roomId) {
+        try {
+          await api.post(`/communication/${roomId}/signal`, {
+            candidate: event.candidate
+          });
+        } catch (e) { console.error("Error sending ICE candidate", e); }
       }
     };
 
@@ -154,22 +77,94 @@ const Communication = () => {
       peer.addTrack(track, currentStream);
     });
 
-    peer.onnegotiationneeded = async () => {
-      try {
-        const offer = await peer.createOffer();
-        await peer.setLocalDescription(offer);
-        socket.emit('offer', {
-          target: targetUserId,
-          caller: socket.id,
-          sdp: peer.localDescription
-        });
-      } catch (error) {
-        console.error("Negotiation needed error", error);
-      }
-    };
-
     return peer;
   };
+
+  useEffect(() => {
+    if (!hasJoined || !roomId) return;
+    
+    let currentStream = null;
+    let peer = null;
+
+    const startMediaAndPolling = async () => {
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setStream(currentStream);
+        if (localVideoRef.current) localVideoRef.current.srcObject = currentStream;
+
+        peer = createPeer(currentStream);
+        peerRef.current = peer;
+
+        // Force Doctor to be the offerer to avoid race conditions
+        if (user?.role === 'Doctor') {
+          peer.onnegotiationneeded = async () => {
+            if (hasOffered.current) return;
+            hasOffered.current = true;
+            try {
+              const offer = await peer.createOffer();
+              await peer.setLocalDescription(offer);
+              await api.post(`/communication/${roomId}/signal`, { offer: peer.localDescription });
+            } catch (error) {
+              console.error("Negotiation needed error", error);
+            }
+          };
+        }
+
+        // Start polling the stateless API every 2 seconds
+        pollingInterval.current = setInterval(async () => {
+          try {
+            const { data } = await api.get(`/communication/${roomId}`);
+            
+            // Handle Messages Sync
+            if (data.messages && data.messages.length > 0) {
+              setMessages(data.messages);
+            }
+
+            // If Patient, answer the offer
+            if (user?.role === 'Patient' && data.offer && !hasAnswered.current) {
+              hasAnswered.current = true;
+              await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+              const answer = await peer.createAnswer();
+              await peer.setLocalDescription(answer);
+              await api.post(`/communication/${roomId}/signal`, { answer: peer.localDescription });
+            }
+
+            // If Doctor, accept the answer
+            if (user?.role === 'Doctor' && data.answer && hasOffered.current && peer.signalingState !== 'stable') {
+              await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
+
+            // Add new ICE candidates
+            if (data.iceCandidates) {
+              for (const cand of data.iceCandidates) {
+                if (cand.senderId !== user._id && !processedCandidates.current.has(cand._id)) {
+                  processedCandidates.current.add(cand._id);
+                  await peer.addIceCandidate(new RTCIceCandidate(cand.candidate)).catch(e => console.error(e));
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Polling error", error);
+          }
+        }, 2000);
+
+      } catch (error) {
+        console.error("Error accessing media devices.", error);
+        alert("Unable to access camera or microphone. Please check your permissions.");
+      }
+    };
+    startMediaAndPolling();
+
+    return () => {
+      if (pollingInterval.current) clearInterval(pollingInterval.current);
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      if (peerRef.current) {
+        peerRef.current.close();
+      }
+    };
+  }, [hasJoined, roomId, user]);
 
   const toggleMute = () => {
     if (stream) {
@@ -240,18 +235,24 @@ const Communication = () => {
       stream.getTracks().forEach(track => track.stop());
     }
     if (recognitionRef.current) recognitionRef.current.stop();
+    if (pollingInterval.current) clearInterval(pollingInterval.current);
     navigate(-1);
   };
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !roomId) return;
     
-    const payload = { roomId, sender: socket.id, text: input };
-    socket.emit('send-message', payload);
-    
-    setMessages([...messages, { sender: 'me', text: input }]);
+    const messageText = input;
     setInput('');
+    // Optimistic UI update
+    setMessages(prev => [...prev, { senderId: user._id, text: messageText }]);
+
+    try {
+      await api.post(`/communication/${roomId}/message`, { text: messageText });
+    } catch (error) {
+      console.error("Failed to send message", error);
+    }
   };
 
   return (
@@ -324,7 +325,7 @@ const Communication = () => {
               </div>
             ) : (
               <>
-                {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1 }}>Waiting for other participant to join...</p>}
+                {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1 }}>Waiting for WebRTC Peer to connect...</p>}
                 
                 {/* Remote Video Container */}
                 <video 
@@ -381,11 +382,13 @@ const Communication = () => {
              <h3 style={{ fontSize: '1.2rem', color: 'var(--secondary)' }}>Chat</h3>
           </div>
           <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {messages.map((msg, idx) => (
-              <div key={idx} style={{ alignSelf: msg.sender === 'me' ? 'flex-end' : 'flex-start', background: msg.sender === 'me' ? 'var(--primary)' : '#e2e8f0', color: msg.sender === 'me' ? '#fff' : '#1e293b', padding: '10px 14px', borderRadius: '12px', maxWidth: '80%' }}>
+            {messages.map((msg, idx) => {
+              const isMe = msg.senderId === user._id;
+              return (
+              <div key={idx} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', background: isMe ? 'var(--primary)' : '#e2e8f0', color: isMe ? '#fff' : '#1e293b', padding: '10px 14px', borderRadius: '12px', maxWidth: '80%' }}>
                 {msg.text}
               </div>
-            ))}
+            )})}
           </div>
           <form onSubmit={handleSend} style={{ display: 'flex', padding: '12px', borderTop: '1px solid var(--glass-border)' }}>
             <input 
@@ -395,8 +398,9 @@ const Communication = () => {
               placeholder="Type message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              disabled={!hasJoined}
             />
-            <button type="submit" className="btn-primary" style={{ borderRadius: '0 8px 8px 0', padding: '10px 16px' }}>Send</button>
+            <button type="submit" className="btn-primary" disabled={!hasJoined} style={{ borderRadius: '0 8px 8px 0', padding: '10px 16px' }}>Send</button>
           </form>
 
           {/* AI Notes Section */}
