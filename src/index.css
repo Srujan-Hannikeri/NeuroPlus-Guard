@@ -440,13 +440,56 @@ body {
 }
 
 .chat-sidebar {
-  display: none !important;
+  display: flex !important;
+  width: 320px !important;
+  flex-direction: column !important;
+  border-right: 1px solid var(--glass-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .workspace-panel {
-  width: 100% !important;
   flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Pulsating Avatar for Voice Call */
+@keyframes pulseRing {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 0.3; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulseRing 2s infinite ease-out;
+}
+
+/* Responsive Master-Detail layout for Mobile Devices */
+@media (max-width: 768px) {
+  .chat-sidebar.mobile-hide {
+    display: none !important;
+  }
+  
+  .chat-sidebar.mobile-show {
+    display: flex !important;
+    width: 100% !important;
+    border-right: none !important;
+  }
+
+  .workspace-panel.mobile-hide {
+    display: none !important;
+  }
+
+  .workspace-panel.mobile-show {
+    display: flex !important;
+    width: 100% !important;
+  }
 }
 
 .contact-item:hover {

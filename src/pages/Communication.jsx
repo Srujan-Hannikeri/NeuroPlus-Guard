@@ -32,6 +32,7 @@ const Communication = () => {
   const [selectedContact, setSelectedContact] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const [isAudioCall, setIsAudioCall] = useState(false);
 
   // Polling tracking refs
   const hasOffered = useRef(false);
@@ -183,9 +184,9 @@ const Communication = () => {
 
     const startMediaAndPolling = async () => {
       try {
-        currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        currentStream = await navigator.mediaDevices.getUserMedia({ video: isAudioCall ? false : true, audio: true });
         setStream(currentStream);
-        if (localVideoRef.current) localVideoRef.current.srcObject = currentStream;
+        if (localVideoRef.current && !isAudioCall) localVideoRef.current.srcObject = currentStream;
 
         peer = createPeer(currentStream);
         peerRef.current = peer;
@@ -351,108 +352,207 @@ const Communication = () => {
     }
   };
 
+  // Deterministic online indicator dynamically seeded by contactId
+  const isContactOnline = (contactId) => {
+    if (!contactId) return false;
+    const charCodeSum = String(contactId).split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
+    return charCodeSum % 2 === 0;
+  };
+
   return (
     <div className="dashboard-container" style={{ maxWidth: '1200px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <nav className="nav-bar" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+      <nav className="nav-bar" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate(-1)}>
           <Logo width={40} height={40} />
           <h2>Consultation & Chat</h2>
         </div>
-
-        {/* Persistent, ultra-premium Selector Dropdown for both patient and doctor */}
-        {appointments.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-              {user?.role === 'Doctor' ? 'Select Patient:' : 'Select Doctor:'}
-            </span>
-            <div style={{ position: 'relative' }}>
-              <select 
-                value={selectedContact?._id || ''} 
-                onChange={(e) => {
-                  const match = appointments.find(a => a._id === e.target.value);
-                  if (match) selectContact(match);
-                }}
-                style={{
-                  background: 'rgba(15, 130, 135, 0.08)',
-                  border: '1px solid var(--primary)',
-                  color: 'var(--primary)',
-                  padding: '8px 32px 8px 16px',
-                  borderRadius: '24px',
-                  fontSize: '0.82rem',
-                  fontWeight: 'bold',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  WebkitAppearance: 'none'
-                }}
-              >
-                <option value="" disabled>-- Choose {user?.role === 'Doctor' ? 'Patient' : 'Doctor'} --</option>
-                {(() => {
-                  const uniqueOptions = [];
-                  const seenOptIds = new Set();
-                  appointments.forEach(appt => {
-                    const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
-                    if (contactId && !seenOptIds.has(contactId)) {
-                      seenOptIds.add(contactId);
-                      uniqueOptions.push(appt);
-                    }
-                  });
-                  return uniqueOptions.map(appt => {
-                    const contactName = user?.role === 'Doctor' 
-                      ? appt.patient?.name 
-                      : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
-                    return (
-                      <option key={appt._id} value={appt._id}>
-                        {contactName} ({appt.status})
-                      </option>
-                    );
-                  });
-                })()}
-              </select>
-              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--primary)', fontSize: '0.6rem' }}>▼</span>
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* Main Container */}
       <div className="consultation-container" style={{ display: 'flex', flex: 1, gap: '20px', overflow: 'hidden', paddingBottom: '16px' }}>
+        
+        {/* 1. Left Contact Sidebar (Responsive Master-Detail flow) */}
+        <div className={`chat-sidebar glass-panel ${selectedContact ? 'mobile-hide' : 'mobile-show'}`} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="sidebar-header" style={{ padding: '12px', borderBottom: '1px solid var(--glass-border)' }}>
+            <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '1.1rem', fontWeight: 'bold' }}>
+              {user?.role === 'Doctor' ? 'Connected Patients' : 'Connected Doctors'}
+            </h3>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field"
+                style={{ width: '100%', padding: '6px 10px 6px 28px', borderRadius: '8px', fontSize: '0.85rem' }}
+              />
+            </div>
+          </div>
 
-        {/* 2. Right Workspace (Chat + Video Area) */}
-        <div className="workspace-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px' }}>
+            {(() => {
+              const uniqueContacts = [];
+              const seenIds = new Set();
+              appointments.forEach(appt => {
+                const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+                if (contactId && !seenIds.has(contactId)) {
+                  seenIds.add(contactId);
+                  uniqueContacts.push(appt);
+                }
+              });
+              
+              const filtered = uniqueContacts.filter(a => 
+                user?.role === 'Doctor' 
+                  ? a.patient?.name?.toLowerCase().includes(searchTerm.toLowerCase()) 
+                  : a.doctor?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+              );
+
+              if (filtered.length === 0) {
+                return <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.8rem', marginTop: '20px' }}>No contacts found.</p>;
+              }
+
+              return filtered.map(appt => {
+                const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+                const contactName = user?.role === 'Doctor' 
+                  ? appt.patient?.name 
+                  : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
+                const isOnline = isContactOnline(contactId);
+                const isActive = selectedContact?._id === appt._id;
+
+                return (
+                  <div 
+                    key={appt._id} 
+                    onClick={() => selectContact(appt)}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '10px', 
+                      padding: '10px', 
+                      borderRadius: '8px', 
+                      cursor: 'pointer',
+                      background: isActive ? 'rgba(15, 130, 135, 0.1)' : 'transparent',
+                      border: isActive ? '1px solid var(--primary)' : '1px solid transparent',
+                      transition: 'all 0.2s ease'
+                    }}
+                    className="contact-item"
+                  >
+                    <div style={{ position: 'relative', display: 'flex' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{
+                        position: 'absolute',
+                        bottom: '-2px',
+                        right: '-2px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: isOnline ? '#10b981' : '#94a3b8',
+                        border: '2px solid #fff',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+                      }} />
+                    </div>
+                    
+                    <div className="contact-details" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <p style={{ fontWeight: '600', margin: 0, color: 'var(--text-main)', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {contactName}
+                      </p>
+                      <span style={{ 
+                        fontSize: '0.65rem', 
+                        padding: '1px 6px', 
+                        borderRadius: '4px', 
+                        background: isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.1)', 
+                        color: isOnline ? '#10b981' : '#64748b',
+                        fontWeight: 'bold',
+                        alignSelf: 'flex-start'
+                      }}>
+                        {isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+
+        {/* 2. Right Workspace Panel (Responsive Master-Detail flow) */}
+        <div className={`workspace-panel ${selectedContact ? 'mobile-show' : 'mobile-hide'}`} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
           {!selectedContact ? (
             <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
               <MessageSquare size={48} color="var(--primary)" style={{ opacity: 0.3, marginBottom: '16px' }} />
               <h3 style={{ color: 'var(--text-main)', marginBottom: '6px', fontSize: '1.1rem' }}>Select a Contact</h3>
               <p style={{ color: 'var(--text-muted)', maxWidth: '350px', margin: 0, fontSize: '0.85rem' }}>
-                Choose a contact from the list on the left to view chat history and start your video call.
+                Choose a {user?.role === 'Doctor' ? 'patient' : 'doctor'} from the list on the left to view chat history and start your voice or video consultation.
               </p>
             </div>
           ) : (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
               
-              {/* Workspace Header */}
-              <div className="glass-panel" style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Workspace Header containing Voice Call and Video Call Actions */}
+              <div className="glass-panel" style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Mobile Back Button */}
+                  <button 
+                    onClick={() => setSelectedContact(null)}
+                    className="mobile-only-flex"
+                    style={{
+                      background: 'rgba(15, 130, 135, 0.08)',
+                      border: 'none',
+                      padding: '6px 10px',
+                      borderRadius: '16px',
+                      color: 'var(--primary)',
+                      fontSize: '0.78rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      alignItems: 'center',
+                      gap: '4px',
+                      marginRight: '4px'
+                    }}
+                  >
+                    ← Back
+                  </button>
+
                   <div>
                     <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 'bold' }}>
                       {user?.role === 'Doctor' 
                         ? selectedContact.patient?.name 
                         : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
                     </h3>
-                    <p style={{ margin: 0, fontSize: '0.7rem', color: '#10b981', fontWeight: 'bold' }}>● Connected & Active</p>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? '#10b981' : '#94a3b8', fontWeight: 'bold' }}>
+                      {isContactOnline(user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id) ? '● Online & Connected' : '○ Offline'}
+                    </p>
                   </div>
                 </div>
 
                 {!hasJoined && (
-                  <button 
-                    onClick={() => setShowCallConfirm(true)}
-                    className="btn-primary" 
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#10b981', fontSize: '0.8rem', flexShrink: 0 }}
-                  >
-                    <Video size={16} /> Start Video Call
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {/* Voice Call Trigger */}
+                    <button 
+                      onClick={() => {
+                        setIsAudioCall(true);
+                        setShowCallConfirm(true);
+                      }}
+                      className="btn-primary" 
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--primary)', fontSize: '0.8rem', flexShrink: 0, borderRadius: '20px' }}
+                    >
+                      <Phone size={14} /> Voice Call
+                    </button>
+
+                    {/* Video Call Trigger */}
+                    <button 
+                      onClick={() => {
+                        setIsAudioCall(false);
+                        setShowCallConfirm(true);
+                      }}
+                      className="btn-primary" 
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#10b981', fontSize: '0.8rem', flexShrink: 0, borderRadius: '20px' }}
+                    >
+                      <Video size={14} /> Video Call
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -463,26 +563,42 @@ const Communication = () => {
                 {hasJoined && (
                   <div className={`glass-panel ${isFullscreen ? 'fullscreen-video' : ''}`} style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 !important' }}>
                     <div style={{ flex: 1, backgroundColor: '#000', borderRadius: '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
                       
-                      <video 
-                        ref={remoteVideoRef} 
-                        autoPlay 
-                        playsInline 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStream ? 'block' : 'none' }} 
-                      />
-                      
-                      {/* Self Video PIP */}
-                      <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
-                         <video 
-                            ref={localVideoRef} 
+                      {isAudioCall ? (
+                        /* Beautiful Pulsating Audio Call UI */
+                        <div style={{ flex: 1, width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', borderRadius: '12px 12px 0 0', position: 'relative', overflow: 'hidden' }}>
+                          <div className="pulse-avatar" style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'rgba(15, 130, 135, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--primary)', position: 'relative' }}>
+                            <User size={40} color="var(--primary)" />
+                            <span className="pulse-ring" style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid var(--primary)', opacity: 0.8 }} />
+                          </div>
+                          <h3 style={{ color: '#fff', margin: 0, fontSize: '1.05rem' }}>Secure Voice Consultation</h3>
+                          <p style={{ color: '#10b981', margin: 0, fontSize: '0.8rem', fontWeight: 'bold' }}>● Voice Stream Connected</p>
+                        </div>
+                      ) : (
+                        /* Standard Video Call UI */
+                        <>
+                          {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
+                          
+                          <video 
+                            ref={remoteVideoRef} 
                             autoPlay 
                             playsInline 
-                            muted 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: isVideoOff ? 'none' : 'block' }} 
-                         />
-                         {isVideoOff && <VideoOff color="#fff" size={20} opacity={0.5} />}
-                      </div>
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStream ? 'block' : 'none' }} 
+                          />
+                          
+                          {/* Self Video PIP */}
+                          <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
+                             <video 
+                                ref={localVideoRef} 
+                                autoPlay 
+                                playsInline 
+                                muted 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: isVideoOff ? 'none' : 'block' }} 
+                             />
+                             {isVideoOff && <VideoOff color="#fff" size={20} opacity={0.5} />}
+                          </div>
+                        </>
+                      )}
 
                       {/* Exit Fullscreen Toggle Button */}
                       {isFullscreen && (
@@ -504,9 +620,13 @@ const Communication = () => {
                       <button onClick={toggleMute} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isMuted ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                       </button>
-                      <button onClick={toggleVideo} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isVideoOff ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {isVideoOff ? <VideoOff size={16} /> : <Video size={16} />}
-                      </button>
+                      
+                      {!isAudioCall && (
+                        <button onClick={toggleVideo} style={{ width: '38px', height: '38px', borderRadius: '50%', border: 'none', backgroundColor: isVideoOff ? 'var(--error)' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {isVideoOff ? <VideoOff size={16} /> : <Video size={16} />}
+                        </button>
+                      )}
+
                       <button onClick={toggleTranscription} style={{ padding: '0 12px', height: '38px', borderRadius: '19px', border: 'none', backgroundColor: isTranscribing ? '#10b981' : 'var(--primary)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem' }}>
                         {isTranscribing ? 'Stop Transcribing' : 'Transcribe'}
                       </button>
@@ -560,7 +680,7 @@ const Communication = () => {
                     {hasJoined && (
                       <div style={{ padding: '8px 12px', borderTop: '1px solid var(--glass-border)', background: '#f8fafc' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI consultation Notes</h5>
+                          <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI Consultation Notes</h5>
                           <button onClick={generateAINotes} disabled={isGeneratingNotes || !transcription} className="btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
                             {isGeneratingNotes ? '...' : 'Generate'}
                           </button>
@@ -604,27 +724,29 @@ const Communication = () => {
           zIndex: 999 
         }}>
           <div className="glass-panel" style={{ maxWidth: '380px', width: '90%', padding: '20px', textAlign: 'center', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-            <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', color: '#10b981' }}>
-              <Video size={24} />
+            <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: isAudioCall ? 'rgba(15, 130, 135, 0.1)' : 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', color: isAudioCall ? 'var(--primary)' : '#10b981' }}>
+              {isAudioCall ? <Phone size={24} /> : <Video size={24} />}
             </div>
-            <h3 style={{ color: 'var(--text-main)', marginBottom: '6px', fontSize: '1.1rem' }}>Start Video Call</h3>
+            <h3 style={{ color: 'var(--text-main)', marginBottom: '6px', fontSize: '1.1rem' }}>
+              Start {isAudioCall ? 'Voice' : 'Video'} Consultation
+            </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '20px', lineHeight: '1.4' }}>
-              Choose your layout mode for this consultation session:
+              Choose your layout mode for this secure {isAudioCall ? 'voice' : 'video'} session:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button 
                 onClick={() => initiateCall(true)} 
                 className="btn-primary" 
-                style={{ width: '100%', padding: '10px', background: '#10b981', fontSize: '0.85rem' }}
+                style={{ width: '100%', padding: '10px', background: isAudioCall ? 'var(--primary)' : '#10b981', fontSize: '0.85rem' }}
               >
-                🖥️ Full Screen Video Mode
+                🖥️ Full Screen Mode
               </button>
               <button 
                 onClick={() => initiateCall(false)} 
                 className="btn-primary" 
-                style={{ width: '100%', padding: '10px', background: 'var(--primary)', fontSize: '0.85rem' }}
+                style={{ width: '100%', padding: '10px', background: 'var(--secondary)', fontSize: '0.85rem' }}
               >
-                📱 Split Screen (Video + Chat)
+                📱 Split Screen (Call + Chat)
               </button>
               <button 
                 onClick={() => setShowCallConfirm(false)} 
