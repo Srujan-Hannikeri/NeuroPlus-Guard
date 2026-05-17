@@ -353,115 +353,70 @@ const Communication = () => {
 
   return (
     <div className="dashboard-container" style={{ maxWidth: '1200px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <nav className="nav-bar" style={{ marginBottom: '16px' }}>
+      <nav className="nav-bar" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate(-1)}>
           <Logo width={40} height={40} />
           <h2>Consultation & Chat</h2>
         </div>
+
+        {/* Persistent, ultra-premium Selector Dropdown for both patient and doctor */}
+        {appointments.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+              {user?.role === 'Doctor' ? 'Select Patient:' : 'Select Doctor:'}
+            </span>
+            <div style={{ position: 'relative' }}>
+              <select 
+                value={selectedContact?._id || ''} 
+                onChange={(e) => {
+                  const match = appointments.find(a => a._id === e.target.value);
+                  if (match) selectContact(match);
+                }}
+                style={{
+                  background: 'rgba(15, 130, 135, 0.08)',
+                  border: '1px solid var(--primary)',
+                  color: 'var(--primary)',
+                  padding: '8px 32px 8px 16px',
+                  borderRadius: '24px',
+                  fontSize: '0.82rem',
+                  fontWeight: 'bold',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  WebkitAppearance: 'none'
+                }}
+              >
+                <option value="" disabled>-- Choose {user?.role === 'Doctor' ? 'Patient' : 'Doctor'} --</option>
+                {(() => {
+                  const uniqueOptions = [];
+                  const seenOptIds = new Set();
+                  appointments.forEach(appt => {
+                    const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+                    if (contactId && !seenOptIds.has(contactId)) {
+                      seenOptIds.add(contactId);
+                      uniqueOptions.push(appt);
+                    }
+                  });
+                  return uniqueOptions.map(appt => {
+                    const contactName = user?.role === 'Doctor' 
+                      ? appt.patient?.name 
+                      : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
+                    return (
+                      <option key={appt._id} value={appt._id}>
+                        {contactName} ({appt.status})
+                      </option>
+                    );
+                  });
+                })()}
+              </select>
+              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--primary)', fontSize: '0.6rem' }}>▼</span>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Main Container */}
       <div className="consultation-container" style={{ display: 'flex', flex: 1, gap: '20px', overflow: 'hidden', paddingBottom: '16px' }}>
-        
-        {/* 1. Left Contact Sidebar (Compact icon list on mobile) */}
-        <div className="chat-sidebar glass-panel" style={{ width: '300px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div className="sidebar-header" style={{ padding: '12px', borderBottom: '1px solid var(--glass-border)' }}>
-            <h3 style={{ color: 'var(--primary)', marginBottom: '8px', fontSize: '1.1rem' }}>
-              {user?.role === 'Doctor' ? 'My Patients' : 'My Doctors'}
-            </h3>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-field"
-                style={{ width: '100%', padding: '6px 10px 6px 28px', borderRadius: '8px', fontSize: '0.85rem' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px' }}>
-            {(() => {
-              const uniqueContacts = [];
-              const seenIds = new Set();
-              appointments.forEach(appt => {
-                const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
-                if (contactId && !seenIds.has(contactId)) {
-                  seenIds.add(contactId);
-                  uniqueContacts.push(appt);
-                }
-              });
-              
-              const filtered = uniqueContacts.filter(a => 
-                user?.role === 'Doctor' 
-                  ? a.patient?.name?.toLowerCase().includes(searchTerm.toLowerCase()) 
-                  : a.doctor?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-              );
-
-              if (filtered.length === 0) {
-                return <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.8rem', marginTop: '20px' }}>No contacts found.</p>;
-              }
-
-              return filtered.map(appt => {
-                const contactName = user?.role === 'Doctor' 
-                  ? appt.patient?.name 
-                  : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
-                const isActive = selectedContact?._id === appt._id;
-                return (
-                  <div 
-                    key={appt._id} 
-                    onClick={() => selectContact(appt)}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '10px', 
-                      padding: '10px', 
-                      borderRadius: '8px', 
-                      cursor: 'pointer',
-                      background: isActive ? 'rgba(15, 130, 135, 0.1)' : 'transparent',
-                      border: isActive ? '1px solid var(--primary)' : '1px solid transparent',
-                      transition: 'all 0.2s ease'
-                    }}
-                    className="contact-item"
-                  >
-                    <div style={{ position: 'relative', display: 'flex' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                        {contactName.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
-                      </div>
-                      <span style={{
-                        position: 'absolute',
-                        bottom: '-2px',
-                        right: '-2px',
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        background: appt.status === 'Accepted' ? '#10b981' : '#f59e0b',
-                        border: '2px solid #fff',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                      }} />
-                    </div>
-                    <div className="contact-details" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <p style={{ fontWeight: '600', margin: 0, color: 'var(--text-main)', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactName}</p>
-                      <span style={{ 
-                        fontSize: '0.65rem', 
-                        padding: '1px 6px', 
-                        borderRadius: '4px', 
-                        background: appt.status === 'Accepted' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', 
-                        color: appt.status === 'Accepted' ? '#10b981' : '#f59e0b',
-                        fontWeight: 'bold',
-                        alignSelf: 'flex-start'
-                      }}>
-                        {appt.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        </div>
 
         {/* 2. Right Workspace (Chat + Video Area) */}
         <div className="workspace-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -478,62 +433,15 @@ const Communication = () => {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
               
               {/* Workspace Header */}
-              <div className="glass-panel" style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div className="glass-panel" style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', fontWeight: 'bold' }}>
                       {user?.role === 'Doctor' 
                         ? selectedContact.patient?.name 
                         : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
                     </h3>
-                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Online Consultation Room</p>
-                  </div>
-                  
-                  {/* Contact selector dropdown for both mobile and desktop */}
-                  <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                    <select 
-                      value={selectedContact?._id || ''} 
-                      onChange={(e) => {
-                        const match = appointments.find(a => a._id === e.target.value);
-                        if (match) selectContact(match);
-                      }}
-                      style={{
-                        background: 'rgba(15, 130, 135, 0.08)',
-                        border: '1px solid var(--primary)',
-                        color: 'var(--primary)',
-                        padding: '6px 24px 6px 12px',
-                        borderRadius: '20px',
-                        fontSize: '0.78rem',
-                        fontWeight: 'bold',
-                        outline: 'none',
-                        cursor: 'pointer',
-                        appearance: 'none',
-                        WebkitAppearance: 'none'
-                      }}
-                    >
-                      {(() => {
-                        const uniqueOptions = [];
-                        const seenOptIds = new Set();
-                        appointments.forEach(appt => {
-                          const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
-                          if (contactId && !seenOptIds.has(contactId)) {
-                            seenOptIds.add(contactId);
-                            uniqueOptions.push(appt);
-                          }
-                        });
-                        return uniqueOptions.map(appt => {
-                          const contactName = user?.role === 'Doctor' 
-                            ? appt.patient?.name 
-                            : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
-                          return (
-                            <option key={appt._id} value={appt._id}>
-                              {contactName}
-                            </option>
-                          );
-                        });
-                      })()}
-                    </select>
-                    <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--primary)', fontSize: '0.5rem' }}>▼</span>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: '#10b981', fontWeight: 'bold' }}>● Connected & Active</p>
                   </div>
                 </div>
 
