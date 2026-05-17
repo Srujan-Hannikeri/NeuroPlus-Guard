@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Phone, Video, Send, Mic, MicOff, VideoOff, PhoneOff, User, MessageSquare, ShieldCheck, Heart, Search } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import axios from 'axios';
@@ -40,6 +40,8 @@ const Communication = () => {
   const processedCandidates = useRef(new Set());
   const pollingInterval = useRef(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const contactIdParam = searchParams.get('contactId');
   const location = useLocation();
   const autoSelectAppointmentId = location.state?.autoSelectAppointmentId;
 
@@ -48,8 +50,20 @@ const Communication = () => {
       try {
         const { data } = await api.get('/appointments');
         setAppointments(data);
-        if (data.length > 0) {
-          if (autoSelectAppointmentId) {
+        if (Array.isArray(data) && data.length > 0) {
+          if (contactIdParam) {
+            const matched = data.find(a => {
+              const cId = user?.role === 'Doctor' ? a.patient?._id : a.doctor?._id;
+              return cId === contactIdParam;
+            });
+            if (matched) {
+              setSelectedContact(matched);
+              setRoomId(`room-${matched._id}`);
+              setMessages([]);
+              setHasJoined(false);
+              setIsFullscreen(false);
+            }
+          } else if (autoSelectAppointmentId) {
             const matched = data.find(a => a._id === autoSelectAppointmentId);
             if (matched) {
               setSelectedContact(matched);
@@ -65,7 +79,7 @@ const Communication = () => {
       }
     };
     fetchAppointments();
-  }, [autoSelectAppointmentId]);
+  }, [autoSelectAppointmentId, contactIdParam, user]);
 
   // Poll messages for active chat room even if call is not started
   useEffect(() => {
@@ -88,6 +102,10 @@ const Communication = () => {
   }, [roomId, hasJoined]);
 
   const selectContact = (appt) => {
+    const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+    if (contactId) {
+      setSearchParams({ contactId });
+    }
     setSelectedContact(appt);
     setRoomId(`room-${appt._id}`);
     setMessages([]);
@@ -346,6 +364,7 @@ const Communication = () => {
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => {
           if (selectedContact) {
+            setSearchParams({});
             setSelectedContact(null);
           } else {
             navigate(-1);
@@ -502,7 +521,10 @@ const Communication = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {/* Symmetrical Back to List Button for both Desktop and Mobile */}
               <button 
-                onClick={() => setSelectedContact(null)}
+                onClick={() => {
+                  setSearchParams({});
+                  setSelectedContact(null);
+                }}
                 className="back-btn-responsive"
                 style={{
                   background: 'rgba(15, 130, 135, 0.08)',
