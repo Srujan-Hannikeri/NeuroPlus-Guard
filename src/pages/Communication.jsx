@@ -502,6 +502,7 @@ const Communication = () => {
               {/* Symmetrical Back to List Button for both Desktop and Mobile */}
               <button 
                 onClick={() => setSelectedContact(null)}
+                className="back-btn-responsive"
                 style={{
                   background: 'rgba(15, 130, 135, 0.08)',
                   border: 'none',

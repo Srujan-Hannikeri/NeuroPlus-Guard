@@ -429,6 +429,17 @@ body {
   .desktop-only {
     display: none !important;
   }
+
+  .back-btn-responsive {
+    padding: 5px 10px !important;
+    font-size: 0.75rem !important;
+    border-radius: 16px !important;
+  }
+
+  .chat-send-btn {
+    width: 44px !important;
+    height: 44px !important;
+  }
 }
 
 /* Consultation & Chat Layout General Classes */
