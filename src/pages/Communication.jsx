@@ -478,15 +478,62 @@ const Communication = () => {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
               
               {/* Workspace Header */}
-              <div className="glass-panel" style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem' }}>
+              <div className="glass-panel" style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {user?.role === 'Doctor' 
                         ? selectedContact.patient?.name 
                         : `Dr. ${selectedContact.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`}
                     </h3>
                     <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Online Consultation Room</p>
+                  </div>
+                  
+                  {/* Quick-switch select dropdown on mobile screens */}
+                  <div className="mobile-only-flex" style={{ position: 'relative', flexShrink: 0 }}>
+                    <select 
+                      value={selectedContact?._id || ''} 
+                      onChange={(e) => {
+                        const match = appointments.find(a => a._id === e.target.value);
+                        if (match) selectContact(match);
+                      }}
+                      style={{
+                        background: 'rgba(15, 130, 135, 0.08)',
+                        border: '1px solid var(--primary)',
+                        color: 'var(--primary)',
+                        padding: '6px 24px 6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.78rem',
+                        fontWeight: 'bold',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        appearance: 'none',
+                        WebkitAppearance: 'none'
+                      }}
+                    >
+                      {(() => {
+                        const uniqueOptions = [];
+                        const seenOptIds = new Set();
+                        appointments.forEach(appt => {
+                          const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
+                          if (contactId && !seenOptIds.has(contactId)) {
+                            seenOptIds.add(contactId);
+                            uniqueOptions.push(appt);
+                          }
+                        });
+                        return uniqueOptions.map(appt => {
+                          const contactName = user?.role === 'Doctor' 
+                            ? appt.patient?.name 
+                            : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
+                          return (
+                            <option key={appt._id} value={appt._id}>
+                              {contactName}
+                            </option>
+                          );
+                        });
+                      })()}
+                    </select>
+                    <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--primary)', fontSize: '0.5rem' }}>▼</span>
                   </div>
                 </div>
 
@@ -494,9 +541,9 @@ const Communication = () => {
                   <button 
                     onClick={() => setShowCallConfirm(true)}
                     className="btn-primary" 
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#10b981', fontSize: '0.8rem' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#10b981', fontSize: '0.8rem', flexShrink: 0 }}
                   >
-                    <Video size={16} /> Start Video Call
+                    <Video size={16} /> <span className="desktop-only">Start Video Call</span>
                   </button>
                 )}
               </div>

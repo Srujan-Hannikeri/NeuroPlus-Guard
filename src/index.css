@@ -414,27 +414,20 @@ body {
   }
 
   .chat-sidebar {
-    width: 60px !important;
-    padding: 8px 0 !important;
-  }
-
-  .sidebar-header {
     display: none !important;
-  }
-
-  .contact-details {
-    display: none !important;
-  }
-
-  .contact-item {
-    justify-content: center !important;
-    padding: 6px !important;
-    border: none !important;
   }
 
   .workspace-panel {
     flex: 1 !important;
-    width: calc(100% - 60px) !important;
+    width: 100% !important;
+  }
+
+  .mobile-only-flex {
+    display: flex !important;
+  }
+
+  .desktop-only {
+    display: none !important;
   }
 }
 
@@ -553,5 +546,13 @@ body {
 .chat-send-btn:hover {
   transform: scale(1.05);
   background: var(--secondary);
+}
+
+.mobile-only-flex {
+  display: none;
+}
+
+.desktop-only {
+  display: inline-block;
 }
 
