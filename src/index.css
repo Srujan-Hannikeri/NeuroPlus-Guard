@@ -504,6 +504,22 @@ body {
   overflow: hidden;
 }
 
+.communication-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+  .communication-layout {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+}
+
 .chat-sidebar {
   display: flex !important;
   width: 320px !important;
