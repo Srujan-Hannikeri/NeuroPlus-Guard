@@ -518,7 +518,7 @@ const Communication = () => {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', padding: '0 4px', boxSizing: 'border-box' }}>
+    <div className="consultation-room-page-root">
       
       {/* 1. Navbar */}
       <nav className="nav-bar" style={{ marginBottom: '16px' }}>

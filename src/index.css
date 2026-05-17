@@ -809,3 +809,31 @@ body {
   }
 }
 
+/* Secure consultation chat height & scroll locks */
+.chatting-active {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+.chatting-active .main-content.consultation-main {
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  padding: 12px !important; /* Premium unified padding */
+}
+
+/* Ensure the Communication page root container matches the parent perfectly without exceeding height */
+.consultation-room-page-root {
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
