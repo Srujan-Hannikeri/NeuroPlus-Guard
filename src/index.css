@@ -745,6 +745,10 @@ body {
 @media (max-width: 768px) {
   .consultation-layout-active.app-layout {
     flex-direction: column !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+    position: relative !important;
   }
 
   .consultation-layout-active .sidebar {
@@ -804,8 +808,15 @@ body {
   }
 
   .consultation-layout-active .main-content {
-    padding: 16px !important;
-    padding-bottom: 90px !important; /* Space for bottom nav */
+    padding: 8px !important;
+    padding-bottom: 72px !important; /* Space for bottom nav (60px + 12px gap) */
+    height: calc(100vh - 60px) !important;
+    height: calc(100dvh - 60px) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
 

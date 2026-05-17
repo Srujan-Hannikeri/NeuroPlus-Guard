@@ -517,6 +517,10 @@ const Communication = () => {
     return onlineUserIds.has(String(contactId));
   };
 
+  const totalOtherUnread = Object.entries(newMessageCounts)
+    .filter(([rId, count]) => rId !== roomId && count > 0)
+    .reduce((sum, [_, count]) => sum + count, 0);
+
   return (
     <div className="consultation-room-page-root">
       
@@ -810,13 +814,34 @@ const Communication = () => {
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '6px',
                     padding: '6px 12px',
                     borderRadius: '6px',
-                    marginRight: '8px'
+                    marginRight: '8px',
+                    position: 'relative'
                   }}
                 >
                   ← Back
+                  {totalOtherUnread > 0 && (
+                    <span 
+                      className="pulse-incoming-call"
+                      style={{
+                        background: '#ef4444',
+                        color: '#fff',
+                        borderRadius: '10px',
+                        padding: '1px 6px',
+                        fontSize: '0.62rem',
+                        fontWeight: 'bold',
+                        marginLeft: '5px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(239, 68, 68, 0.4)'
+                      }}
+                    >
+                      {totalOtherUnread}
+                    </span>
+                  )}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
