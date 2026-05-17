@@ -318,7 +318,9 @@ const Communication = () => {
             
             // Auto-Disconnect detection: if counterpart ended call, their endCall cleared signaling.
             // When we poll and see no active offer/answer but we are inside call, we shut down too!
-            if (!data.offer && !data.answer) {
+            // We gate this check by hasOffered/hasAnswered to avoid startup race conditions.
+            const isNegotiated = user?.role === 'Doctor' ? hasOffered.current : hasAnswered.current;
+            if (isNegotiated && !data.offer && !data.answer) {
               if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
               }
