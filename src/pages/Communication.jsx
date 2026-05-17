@@ -79,10 +79,33 @@ const Communication = () => {
     setIsFullscreen(false);
   };
 
+  const exitNativeFullscreen = () => {
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(err => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen().catch(err => {});
+        }
+      }
+    } catch (err) {}
+  };
+
   const initiateCall = (fullscreenMode) => {
     setIsFullscreen(fullscreenMode);
     setShowCallConfirm(false);
     setHasJoined(true);
+    
+    if (fullscreenMode) {
+      const docEl = document.documentElement;
+      try {
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(err => {});
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen().catch(err => {});
+        }
+      } catch (err) {}
+    }
   };
 
   const createPeer = (currentStream) => {
@@ -273,6 +296,7 @@ const Communication = () => {
     }
     if (recognitionRef.current) recognitionRef.current.stop();
     if (pollingInterval.current) clearInterval(pollingInterval.current);
+    exitNativeFullscreen();
     navigate(-1);
   };
 
@@ -453,7 +477,10 @@ const Communication = () => {
                       {/* Exit Fullscreen Toggle Button */}
                       {isFullscreen && (
                         <button 
-                          onClick={() => setIsFullscreen(false)} 
+                          onClick={() => {
+                            setIsFullscreen(false);
+                            exitNativeFullscreen();
+                          }} 
                           className="btn-primary" 
                           style={{ position: 'absolute', top: '12px', right: '12px', padding: '4px 8px', fontSize: '0.75rem', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}
                         >

@@ -316,7 +316,7 @@ body {
     gap: 16px;
   }
   
-  .communication-layout > div {
+  .communication-layout > div:not(.fullscreen-video) {
     flex: none !important;
     width: 100% !important;
     height: auto !important;
@@ -324,7 +324,7 @@ body {
     overflow: visible !important;
   }
   
-  .communication-layout video {
+  .communication-layout :not(.fullscreen-video) video {
     max-height: 250px;
     object-fit: cover;
   }
