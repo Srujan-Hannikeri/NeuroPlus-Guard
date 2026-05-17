@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Room = require('../models/Room');
+const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 
 // Get room state
@@ -70,22 +71,26 @@ router.post('/:roomId/message', protect, async (req, res) => {
   }
 });
 
-// In-memory online store: { userId: timestamp }
-const onlineUsers = {};
-
 // Heartbeat — called by frontend every 20s to mark user as online
 router.post('/heartbeat', protect, async (req, res) => {
-  onlineUsers[req.user._id.toString()] = Date.now();
-  res.json({ ok: true });
+  try {
+    await User.findByIdAndUpdate(req.user._id, { lastActive: new Date() });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // Get list of online user IDs (seen in last 30s)
 router.get('/online-users', protect, async (req, res) => {
-  const now = Date.now();
-  const online = Object.entries(onlineUsers)
-    .filter(([, ts]) => now - ts < 30000)
-    .map(([id]) => id);
-  res.json({ onlineUserIds: online });
+  try {
+    const cutoff = new Date(Date.now() - 30000);
+    const onlineUsers = await User.find({ lastActive: { $gte: cutoff } }, '_id');
+    const online = onlineUsers.map(u => u._id.toString());
+    res.json({ onlineUserIds: online });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 module.exports = router;

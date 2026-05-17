@@ -101,8 +101,7 @@ const Communication = () => {
         const { data } = await api.get(`/communication/${roomId}`);
         if (data.messages) {
           setMessages(data.messages);
-          setLastReadCounts(prev => ({ ...prev, [roomId]: data.messages.length }));
-          setNewMessageCounts(prev => ({ ...prev, [roomId]: data.messages.length }));
+          setNewMessageCounts(prev => ({ ...prev, [roomId]: 0 }));
         }
       } catch (err) {
         console.error("Chat polling error:", err);
@@ -120,8 +119,8 @@ const Communication = () => {
       setSearchParams({ contactId });
     }
     const rId = `room-${appt._id}`;
-    // Mark this room as read
-    setLastReadCounts(prev => ({ ...prev, [rId]: newMessageCounts[rId] || 0 }));
+    // Mark this room as read immediately in frontend state
+    setNewMessageCounts(prev => ({ ...prev, [rId]: 0 }));
     setSelectedContact(appt);
     setRoomId(rId);
     setMessages([]);
@@ -141,7 +140,8 @@ const Communication = () => {
         const rId = `room-${appt._id}`;
         try {
           const { data } = await api.get(`/communication/${rId}`);
-          counts[rId] = data.messages?.length || 0;
+          // Filter to messages sent by the other user that are not marked as seen yet
+          counts[rId] = data.messages?.filter(msg => msg.senderId !== user?._id && !msg.seen).length || 0;
           if (data.messages && data.messages.length > 0) {
             lastMsgs[rId] = data.messages[data.messages.length - 1];
           }
@@ -153,7 +153,7 @@ const Communication = () => {
     pollAllRooms();
     const interval = setInterval(pollAllRooms, 5000);
     return () => clearInterval(interval);
-  }, [selectedContact, appointments]);
+  }, [selectedContact, appointments, user]);
 
   // Send heartbeat every 20s so others can see us as online
   useEffect(() => {
@@ -511,8 +511,8 @@ const Communication = () => {
                       : `Dr. ${appt.doctor?.name?.replace(/^Dr\.\s*/i, '') || 'Unknown'}`;
                     const isOnline = isContactOnline(contactId);
                     const cardRoomId = `room-${appt._id}`;
-                    const hasNewMsg = (newMessageCounts[cardRoomId] || 0) > (lastReadCounts[cardRoomId] || 0);
-                    const newMsgCount = Math.max(0, (newMessageCounts[cardRoomId] || 0) - (lastReadCounts[cardRoomId] || 0));
+                    const hasNewMsg = (newMessageCounts[cardRoomId] || 0) > 0;
+                    const newMsgCount = newMessageCounts[cardRoomId] || 0;
 
                     return (
                       <div 

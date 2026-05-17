@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false }, // For OTP
   otp: { type: String }, // Temporary storage for OTP
   profilePic: { type: String }, // Base64 image
+  lastActive: { type: Date, default: Date.now },
   
   // Patient Fields
   age: { type: Number },
