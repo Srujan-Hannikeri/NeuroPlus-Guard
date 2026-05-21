@@ -7,6 +7,9 @@ if (!process.env.MONGO_URI) {
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'neuroplusguardsecret123';
 }
+if (!process.env.JWT_EXPIRES_IN) {
+  process.env.JWT_EXPIRES_IN = '30d';
+}
 if (!process.env.GEMINI_API_KEY) {
   process.env.GEMINI_API_KEY = 'AIzaSyCzlrZwPbdj0Je9U_83nW4fL6qfkmK5xK4';
 }
