@@ -17,11 +17,7 @@ const Communication = () => {
   const [input, setInput] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [transcription, setTranscription] = useState('');
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [aiNotes, setAiNotes] = useState('');
-  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
-  const recognitionRef = useRef(null);
+  // Optimized: Removed unused transcription and AI notes states
   const messagesEndRef = useRef(null);
   
   const localVideoRef = useRef(null);
@@ -322,22 +318,21 @@ const Communication = () => {
 
         // Whoever initiated the call is the offerer to support role-independent calls
         if (isInitiator) {
-          peer.onnegotiationneeded = async () => {
-            if (hasOffered.current) return;
+          // Manual negotiation to bypass unpredictable event loop races and trigger signal offer instantly
+          try {
+            const offer = await peer.createOffer();
+            await peer.setLocalDescription(offer);
+            const offerPayload = {
+              type: peer.localDescription.type,
+              sdp: peer.localDescription.sdp,
+              senderId: user._id,
+              isAudioCall: isAudioCall
+            };
+            await api.post(`/communication/${roomId}/signal`, { offer: offerPayload });
             hasOffered.current = true;
-            try {
-              const offer = await peer.createOffer();
-              await peer.setLocalDescription(offer);
-              const offerPayload = {
-                type: peer.localDescription.type,
-                sdp: peer.localDescription.sdp,
-                senderId: user._id
-              };
-              await api.post(`/communication/${roomId}/signal`, { offer: offerPayload });
-            } catch (error) {
-              console.error("Negotiation needed error", error);
-            }
-          };
+          } catch (error) {
+            console.error("Direct offer creation error", error);
+          }
         }
 
         // Start polling the stateless API every 2 seconds
@@ -390,8 +385,8 @@ const Communication = () => {
               await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
             }
 
-            // Add new ICE candidates
-            if (data.iceCandidates) {
+            // Add new ICE candidates only after remote description is set
+            if (data.iceCandidates && peer.remoteDescription) {
               for (const cand of data.iceCandidates) {
                 if (cand.senderId !== user._id && !processedCandidates.current.has(cand._id)) {
                   processedCandidates.current.add(cand._id);
@@ -420,7 +415,7 @@ const Communication = () => {
         peerRef.current.close();
       }
     };
-  }, [hasJoined, roomId, user]);
+  }, [hasJoined, roomId, user, isInitiator, isAudioCall]);
 
   const toggleMute = () => {
     if (stream) {
@@ -442,23 +437,7 @@ const Communication = () => {
     }
   };
 
-  const generateAINotes = async () => {
-    if (!transcription.trim()) return alert("No transcription available to generate notes.");
-    setIsGeneratingNotes(true);
-    try {
-      const formData = new FormData();
-      formData.append('prompt', `Generate a brief medical summary/notes from this consultation transcript: ${transcription}`);
-      const res = await axios.post(`${API_BASE_URL}/ai/chat`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setAiNotes(res.data.reply);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to generate notes.");
-    } finally {
-      setIsGeneratingNotes(false);
-    }
-  };
+  // Removed defunct AI notes speech generators to save memory
 
   // Close peer connections, turn off camera/microphone hardware, clear DB states, and return to grid list
   const endCall = () => {
@@ -471,10 +450,7 @@ const Communication = () => {
       peerRef.current.close();
       peerRef.current = null;
     }
-    // 3. Stop speech recognition
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    // 3. Stop speech recognition (cleared dead dependencies)
     // 4. Clear polling interval
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);
@@ -544,7 +520,7 @@ const Communication = () => {
       {globalIncomingCall && (!selectedContact || roomId !== globalIncomingCall.roomId) && (
         <div 
           onClick={() => {
-            setIsAudioCall(globalIncomingCall.offer.type === 'audio');
+            setIsAudioCall(!!globalIncomingCall.offer.isAudioCall);
             setIsInitiator(false);
             selectContact(globalIncomingCall.appointment);
             setTimeout(() => {
@@ -946,6 +922,19 @@ const Communication = () => {
               >
                 <div style={{ flex: 1, backgroundColor: '#000', borderRadius: isFullscreen ? '0' : '12px 12px 0 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   
+                  {/* Keep remote video in DOM at all times so audio plays properly even in voice-only calls */}
+                  <video 
+                    ref={remoteVideoRef} 
+                    autoPlay 
+                    playsInline 
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover', 
+                      display: isAudioCall ? 'none' : (remoteStream ? 'block' : 'none') 
+                    }} 
+                  />
+
                   {isAudioCall ? (
                     /* Beautiful Pulsating Audio Call UI */
                     <div style={{ flex: 1, width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', borderRadius: isFullscreen ? '0' : '12px 12px 0 0', position: 'relative', overflow: 'hidden' }}>
@@ -957,16 +946,9 @@ const Communication = () => {
                       <p style={{ color: '#10b981', margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>● Voice Stream Connected</p>
                     </div>
                   ) : (
-                    /* Standard Video Call UI */
+                    /* Standard Video Call UI Overlay details */
                     <>
                       {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
-                      
-                      <video 
-                        ref={remoteVideoRef} 
-                        autoPlay 
-                        playsInline 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStream ? 'block' : 'none' }} 
-                      />
                       
                       {/* Self Video PIP */}
                       <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
@@ -974,6 +956,7 @@ const Communication = () => {
                             ref={localVideoRef} 
                             autoPlay 
                             playsInline 
+                            muted
                             style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: isVideoOff ? 'none' : 'block' }} 
                          />
                          {isVideoOff && <VideoOff color="#fff" size={20} opacity={0.5} />}
@@ -1031,7 +1014,7 @@ const Communication = () => {
                   {activeOffer && !hasJoined && (
                     <div 
                       onClick={() => {
-                        setIsAudioCall(activeOffer.type === 'audio');
+                        setIsAudioCall(!!activeOffer.isAudioCall);
                         setIsInitiator(false);
                         initiateCall(false);
                       }}
@@ -1138,26 +1121,7 @@ const Communication = () => {
                   </button>
                 </form>
 
-                {/* AI Notes Section */}
-                {hasJoined && (
-                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--glass-border)', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.8rem' }}>AI Consultation Notes</h5>
-                      <button onClick={generateAINotes} disabled={isGeneratingNotes || !transcription} className="btn-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
-                        {isGeneratingNotes ? '...' : 'Generate'}
-                      </button>
-                    </div>
-                    {aiNotes ? (
-                      <div style={{ fontSize: '0.75rem', color: '#334155', maxHeight: '60px', overflowY: 'auto', background: '#fff', padding: '4px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                        {aiNotes}
-                      </div>
-                    ) : (
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
-                        {transcription ? "Click generate to create AI summary." : "Transcribe call to generate notes."}
-                      </p>
-                    )}
-                  </div>
-                )}
+                // AI Notes placeholder removed for high-speed lightweight operation
               </div>
             )}
             

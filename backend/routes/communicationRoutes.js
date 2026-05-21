@@ -58,8 +58,8 @@ router.post('/:roomId/signal', protect, async (req, res) => {
     if (!room) room = new Room({ roomId: req.params.roomId });
 
     if (clearSignal) {
-      room.offer = undefined;
-      room.answer = undefined;
+      room.offer = null;
+      room.answer = null;
       room.iceCandidates = [];
     } else {
       if (offer) room.offer = offer;
