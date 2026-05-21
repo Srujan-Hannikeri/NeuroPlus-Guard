@@ -14,6 +14,7 @@ import Prescriptions from './pages/Prescriptions';
 import Fees from './pages/Fees';
 import Profile from './pages/Profile';
 import DeveloperDetails from './pages/DeveloperDetails';
+import About from './pages/About';
 import Layout from './components/common/Layout';
 
 const App = () => {
@@ -36,6 +37,7 @@ const App = () => {
           <Route path="/fees" element={<Layout><Fees /></Layout>} />
           <Route path="/profile" element={<Layout><Profile /></Layout>} />
           <Route path="/developer" element={<DeveloperDetails />} />
+          <Route path="/about" element={<Layout><About /></Layout>} />
         </Routes>
       </Router>
     </AuthProvider>

@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
-import { Users, Clock, CheckCircle, User, MessageSquare, Video } from 'lucide-react';
+import { Users, Clock, CheckCircle, User, MessageSquare, Video, Info } from 'lucide-react';
 
 const DoctorDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -14,6 +14,7 @@ const DoctorDashboard = () => {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [scheduleDate, setScheduleDate] = useState('');
+  const [feeAmount, setFeeAmount] = useState('');
 
   useEffect(() => {
     const fetchDashboardAndAppointments = async () => {
@@ -39,6 +40,7 @@ const DoctorDashboard = () => {
 
   const handleScheduleAppointment = async () => {
     if (!scheduleDate) return alert("Please select a date and time.");
+    if (feeAmount === '' || isNaN(feeAmount) || Number(feeAmount) < 0) return alert("Please enter a valid consultation fee amount (0 for free).");
     
     if (selectedAppointment?.isEmergency) {
       const selected = new Date(scheduleDate);
@@ -53,11 +55,18 @@ const DoctorDashboard = () => {
         status: 'Accepted',
         scheduledAt: scheduleDate
       });
+      
+      // Update the fee amount immediately after accepting
+      await api.put(`/appointments/${selectedAppointment._id}/fee`, {
+        feeAmount: Number(feeAmount)
+      });
+      
       // Refresh appointments
       const appointmentsRes = await api.get('/appointments');
       setAppointments(appointmentsRes.data);
       setScheduleModalOpen(false);
       setSelectedAppointment(null);
+      setFeeAmount('');
       alert('Appointment Scheduled successfully!');
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to accept appointment');
@@ -78,10 +87,7 @@ const DoctorDashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+
 
   return (
     <div className="dashboard-container">
@@ -90,7 +96,14 @@ const DoctorDashboard = () => {
           <Logo width={40} height={40} />
           <h2>NeuroPlus Guard - Doctor Dashboard</h2>
         </div>
-        <button onClick={handleLogout} className="btn-primary" style={{ background: 'var(--error)' }}>Logout</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}><Info size={18} /> About Us</a>
+          <div style={{ display: 'flex', gap: '12px', color: 'var(--text-muted)' }}>
+            <a href="https://instagram.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', transition: 'color 0.2s', display: 'flex' }} onMouseOver={e => e.currentTarget.style.color='#e1306c'} onMouseOut={e => e.currentTarget.style.color='inherit'}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>
+            <a href="https://twitter.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', transition: 'color 0.2s', display: 'flex' }} onMouseOver={e => e.currentTarget.style.color='#1da1f2'} onMouseOut={e => e.currentTarget.style.color='inherit'}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg></a>
+            <a href="https://linkedin.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', transition: 'color 0.2s', display: 'flex' }} onMouseOver={e => e.currentTarget.style.color='#0a66c2'} onMouseOut={e => e.currentTarget.style.color='inherit'}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a>
+          </div>
+        </div>
       </nav>
 
       {loading ? (
@@ -192,8 +205,20 @@ const DoctorDashboard = () => {
               onChange={(e) => setScheduleDate(e.target.value)}
               min={new Date().toISOString().slice(0, 16)}
               max={selectedAppointment?.isEmergency ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16) : undefined}
-              style={{ width: '100%', marginBottom: '16px' }}
+              style={{ width: '100%', marginBottom: '16px', boxSizing: 'border-box' }}
             />
+            
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>Consultation Fee (₹)</label>
+            <input 
+              type="number" 
+              className="input-field" 
+              placeholder="e.g. 500 (Set 0 for free)"
+              value={feeAmount}
+              onChange={(e) => setFeeAmount(e.target.value)}
+              min="0"
+              style={{ width: '100%', marginBottom: '24px', boxSizing: 'border-box' }}
+            />
+            
             <div style={{ display: 'flex', gap: '12px' }}>
               <button className="btn-primary" onClick={handleScheduleAppointment} style={{ flex: 1 }}>Confirm</button>
               <button className="btn-primary" onClick={() => setScheduleModalOpen(false)} style={{ flex: 1, background: '#cbd5e1', color: '#1e293b' }}>Cancel</button>

@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
-import { Search, FileText, Bot, Video, User, MessageSquare } from 'lucide-react';
+import { Search, FileText, Bot, Video, User, MessageSquare, Info, CreditCard, CheckCircle, Loader } from 'lucide-react';
 
 const PatientDashboard = () => {
   const { user, logout } = useContext(AuthContext);
@@ -12,6 +12,13 @@ const PatientDashboard = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [currentTimeOfDay, setCurrentTimeOfDay] = useState('');
+  
+  // Payment Gateway State
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentApptId, setPaymentApptId] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -85,9 +92,32 @@ const PatientDashboard = () => {
 
   const pendingMeds = getPendingMedicines();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const openPaymentModal = (appt) => {
+    setPaymentApptId(appt._id);
+    setPaymentAmount(appt.feeAmount);
+    setPaymentSuccess(false);
+    setPaymentModalOpen(true);
+  };
+
+  const processPayment = async () => {
+    setIsProcessing(true);
+    try {
+      // Simulate secure modern payment gateway processing delay
+      await new Promise(r => setTimeout(r, 2000));
+      await api.put(`/appointments/${paymentApptId}/pay`, { amount: paymentAmount });
+      setPaymentSuccess(true);
+      
+      const { data } = await api.get('/appointments');
+      setAppointments(data);
+      
+      setTimeout(() => {
+        setPaymentModalOpen(false);
+        setIsProcessing(false);
+      }, 1500);
+    } catch (error) {
+      alert("Payment processing failed");
+      setIsProcessing(false);
+    }
   };
 
   const requestAppointment = async (doctorId, isEmergency = false) => {
@@ -119,7 +149,14 @@ const PatientDashboard = () => {
           <Logo width={40} height={40} />
           <h2>NeuroPlus Guard - Patient Dashboard</h2>
         </div>
-        <button onClick={handleLogout} className="btn-primary" style={{ background: 'var(--error)' }}>Logout</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}><Info size={18} /> About Us</a>
+          <div style={{ display: 'flex', gap: '12px', color: 'var(--text-muted)' }}>
+            <a href="https://instagram.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', transition: 'color 0.2s', display: 'flex' }} onMouseOver={e => e.currentTarget.style.color='#e1306c'} onMouseOut={e => e.currentTarget.style.color='inherit'}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>
+            <a href="https://twitter.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', transition: 'color 0.2s', display: 'flex' }} onMouseOver={e => e.currentTarget.style.color='#1da1f2'} onMouseOut={e => e.currentTarget.style.color='inherit'}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg></a>
+            <a href="https://linkedin.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', transition: 'color 0.2s', display: 'flex' }} onMouseOver={e => e.currentTarget.style.color='#0a66c2'} onMouseOut={e => e.currentTarget.style.color='inherit'}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a>
+          </div>
+        </div>
       </nav>
 
       {pendingMeds.length > 0 && (
@@ -193,13 +230,25 @@ const PatientDashboard = () => {
                       </p>
                     )}
                     {activeAppointment.status === 'Accepted' && (
-                      <button 
-                        onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: activeAppointment._id } })}
-                        className="btn-primary" 
-                        style={{ marginTop: '8px', width: '100%', padding: '8px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--primary)' }}
-                      >
-                        <MessageSquare size={14} /> Start Call & Chat
-                      </button>
+                      <>
+                        {activeAppointment.feeAmount > 0 && (!activeAppointment.feeStatus || activeAppointment.feeStatus === 'Pending' || activeAppointment.amountPaid < activeAppointment.feeAmount) ? (
+                          <button 
+                            onClick={() => openPaymentModal(activeAppointment)}
+                            className="btn-primary" 
+                            style={{ marginTop: '8px', width: '100%', padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--primary)', boxShadow: '0 4px 12px rgba(15,130,135,0.3)' }}
+                          >
+                            <CreditCard size={16} /> Pay ₹{activeAppointment.feeAmount} to Start Call
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: activeAppointment._id } })}
+                            className="btn-primary" 
+                            style={{ marginTop: '8px', width: '100%', padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#10b981', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                          >
+                            <MessageSquare size={16} /> Start Call & Chat
+                          </button>
+                        )}
+                      </>
                     )}
                     {activeAppointment.status === 'Pending' && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -228,6 +277,67 @@ const PatientDashboard = () => {
           </div>
         )}
       </div>
+      {paymentModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+          <div className="glass-panel" style={{ width: '90%', maxWidth: '400px', padding: '32px', borderRadius: '16px', background: 'rgba(255, 255, 255, 0.95)', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, var(--primary), var(--secondary))' }}></div>
+            
+            <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CreditCard size={24} color="var(--primary)" /> Secure Checkout
+            </h3>
+            <p style={{ margin: '0 0 24px 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              Please complete your payment to join the consultation.
+            </p>
+            
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Consultation Fee:</span>
+              <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary)' }}>₹{paymentAmount}</span>
+            </div>
+            
+            {paymentSuccess ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', color: '#10b981' }}>
+                <CheckCircle size={48} style={{ marginBottom: '16px' }} />
+                <h4 style={{ margin: 0 }}>Payment Successful!</h4>
+                <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Redirecting to room...</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Card Number</label>
+                  <input type="text" placeholder="•••• •••• •••• ••••" className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: '#fff' }} />
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Expiry</label>
+                      <input type="text" placeholder="MM/YY" className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: '#fff' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>CVV</label>
+                      <input type="password" placeholder="•••" className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: '#fff' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    onClick={processPayment} 
+                    disabled={isProcessing}
+                    className="btn-primary" 
+                    style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', opacity: isProcessing ? 0.7 : 1 }}>
+                    {isProcessing ? <Loader size={18} className="pulse-incoming-call" style={{ borderRadius: '50%' }} /> : `Pay ₹${paymentAmount}`}
+                  </button>
+                  <button 
+                    onClick={() => setPaymentModalOpen(false)} 
+                    disabled={isProcessing}
+                    className="btn-primary" 
+                    style={{ background: '#e2e8f0', color: 'var(--text-main)', padding: '0 20px', opacity: isProcessing ? 0.5 : 1 }}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
