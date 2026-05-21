@@ -26,6 +26,19 @@ router.post('/heartbeat', protect, async (req, res) => {
   }
 });
 
+// Get summary for multiple rooms (Massive scaling optimization)
+router.post('/summary', protect, async (req, res) => {
+  try {
+    const { roomIds } = req.body;
+    if (!Array.isArray(roomIds)) return res.status(400).json({ message: 'Invalid roomIds' });
+    
+    const rooms = await Room.find({ roomId: { $in: roomIds } });
+    res.json(rooms);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get room state
 router.get('/:roomId', protect, async (req, res) => {
   try {

@@ -178,26 +178,30 @@ const Communication = () => {
       const lastMsgs = {};
       let activeCallIncoming = null;
 
-      await Promise.all(apptList.map(async appt => {
-        const rId = `room-${appt._id}`;
-        try {
-          const { data } = await api.get(`/communication/${rId}`);
-          // Filter to messages sent by the other user that are not marked as seen yet
-          counts[rId] = data.messages?.filter(msg => msg.senderId !== user?._id && !msg.seen).length || 0;
+      const roomIds = apptList.map(appt => `room-${appt._id}`);
+      try {
+        const { data: rooms } = await api.post('/communication/summary', { roomIds });
+        
+        rooms.forEach(data => {
+          const appt = apptList.find(a => `room-${a._id}` === data.roomId);
+          if (!appt) return;
+          
+          counts[data.roomId] = data.messages?.filter(msg => msg.senderId !== user?._id && !msg.seen).length || 0;
           if (data.messages && data.messages.length > 0) {
-            lastMsgs[rId] = data.messages[data.messages.length - 1];
+            lastMsgs[data.roomId] = data.messages[data.messages.length - 1];
           }
 
-          // Call incoming detection: if there is an active offer, no answer, and we are not the sender
           if (data.offer && !data.answer && data.offer.senderId !== user?._id) {
             activeCallIncoming = {
               appointment: appt,
-              roomId: rId,
+              roomId: data.roomId,
               offer: data.offer
             };
           }
-        } catch {}
-      }));
+        });
+      } catch (e) {
+        console.error("Failed to poll summary");
+      }
 
       setNewMessageCounts(prev => ({ ...prev, ...counts }));
       setLastMessages(prev => ({ ...prev, ...lastMsgs }));
