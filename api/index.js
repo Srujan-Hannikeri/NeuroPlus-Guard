@@ -1,4 +1,16 @@
 require('dotenv').config();
+
+// Fallback environment variables for Vercel deployment
+if (!process.env.MONGO_URI) {
+  process.env.MONGO_URI = 'mongodb+srv://srujanhannikeri_db_user:srujan0513@cluster0.lrakyrl.mongodb.net/neuroplus?retryWrites=true&w=majority';
+}
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'neuroplusguardsecret123';
+}
+if (!process.env.GEMINI_API_KEY) {
+  process.env.GEMINI_API_KEY = 'AIzaSyCzlrZwPbdj0Je9U_83nW4fL6qfkmK5xK4';
+}
+
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
