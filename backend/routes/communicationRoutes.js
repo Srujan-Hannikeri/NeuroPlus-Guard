@@ -61,14 +61,23 @@ router.post('/:roomId/signal', protect, async (req, res) => {
       room.offer = null;
       room.answer = null;
       room.iceCandidates = [];
+      room.markModified('offer');
+      room.markModified('answer');
     } else {
-      if (offer) room.offer = offer;
-      if (answer) room.answer = answer;
+      if (offer) {
+        room.offer = offer;
+        room.markModified('offer');
+      }
+      if (answer) {
+        room.answer = answer;
+        room.markModified('answer');
+      }
       if (candidate) {
         room.iceCandidates.push({
           senderId: req.user._id,
           candidate
         });
+        room.markModified('iceCandidates');
       }
     }
 
