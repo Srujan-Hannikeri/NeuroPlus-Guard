@@ -42,7 +42,12 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.options('*', cors()); // Handle preflight requests
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(process.env.VERCEL ? '/tmp/uploads' : 'uploads'));
@@ -55,6 +60,20 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/communication', communicationRoutes);
+
+// Health check — visit /api/health on Vercel to diagnose DB connection
+app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose');
+  const state = mongoose.connection.readyState;
+  const stateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  res.json({
+    status: 'ok',
+    database: stateMap[state] || 'unknown',
+    mongo_uri_set: !!process.env.MONGO_URI,
+    jwt_secret_set: !!process.env.JWT_SECRET,
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get('/', (req, res) => res.send('NeuroPlus Guard API is running...'));
 
