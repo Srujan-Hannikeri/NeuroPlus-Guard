@@ -25,14 +25,24 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Route files
-const authRoutes = require('../backend/routes/authRoutes');
-const doctorRoutes = require('../backend/routes/doctorRoutes');
-const appointmentRoutes = require('../backend/routes/appointmentRoutes');
-const reportRoutes = require('../backend/routes/reportRoutes');
-const aiRoutes = require('../backend/routes/aiRoutes');
-const prescriptionRoutes = require('../backend/routes/prescriptionRoutes');
-const communicationRoutes = require('../backend/routes/communicationRoutes');
+let routesLoaded = false;
+let routeLoadError = null;
+
+// Pre-load all route modules to catch import errors early
+let authRoutes, doctorRoutes, appointmentRoutes, reportRoutes, aiRoutes, prescriptionRoutes, communicationRoutes;
+try {
+  authRoutes = require('../backend/routes/authRoutes');
+  doctorRoutes = require('../backend/routes/doctorRoutes');
+  appointmentRoutes = require('../backend/routes/appointmentRoutes');
+  reportRoutes = require('../backend/routes/reportRoutes');
+  aiRoutes = require('../backend/routes/aiRoutes');
+  prescriptionRoutes = require('../backend/routes/prescriptionRoutes');
+  communicationRoutes = require('../backend/routes/communicationRoutes');
+  routesLoaded = true;
+} catch (err) {
+  routeLoadError = err.message;
+  console.error('Failed to load route modules:', err);
+}
 
 const app = express();
 
@@ -47,40 +57,80 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(process.env.VERCEL ? '/tmp/uploads' : 'uploads'));
 
-// CRITICAL: Ensure database is connected BEFORE any route handler runs
-// On Vercel serverless, each cold start needs to wait for the DB connection
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (err) {
-    console.error('DB connection failed in middleware:', err.message);
-    res.status(500).json({ message: 'Database connection failed. Please try again.' });
-  }
-});
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/doctors', doctorRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/prescriptions', prescriptionRoutes);
-app.use('/api/communication', communicationRoutes);
-
-// Health check
-app.get('/api/health', (req, res) => {
+// Health check BEFORE database middleware — always accessible for diagnostics
+app.get('/api/health', async (req, res) => {
   const mongoose = require('mongoose');
+  let dbError = null;
+  
+  // Try connecting if not connected
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await connectDB();
+    } catch (err) {
+      dbError = err.message;
+    }
+  }
+  
   const state = mongoose.connection.readyState;
   const stateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  
   res.json({
-    status: 'ok',
+    status: state === 1 ? 'healthy' : 'unhealthy',
     database: stateMap[state] || 'unknown',
+    dbError: dbError,
+    routesLoaded: routesLoaded,
+    routeLoadError: routeLoadError,
+    env: {
+      mongo_uri_set: !!process.env.MONGO_URI,
+      mongo_uri_preview: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 30) + '...' : 'NOT SET',
+      jwt_secret_set: !!process.env.JWT_SECRET,
+      node_env: process.env.NODE_ENV || 'not set',
+      vercel: !!process.env.VERCEL,
+    },
     timestamp: new Date().toISOString()
   });
 });
 
 app.get('/', (req, res) => res.send('NeuroPlus Guard API is running...'));
+
+// Database connection middleware — ensures DB is ready before any API route
+app.use('/api', async (req, res, next) => {
+  // Skip for health check (already handled above)
+  if (req.path === '/health') return next();
+  
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB connection failed:', err.message);
+    res.status(500).json({ message: 'Database connection failed', error: err.message });
+  }
+});
+
+// Routes — only mount if they loaded successfully
+if (routesLoaded) {
+  app.use('/api/auth', authRoutes);
+  app.use('/api/doctors', doctorRoutes);
+  app.use('/api/appointments', appointmentRoutes);
+  app.use('/api/reports', reportRoutes);
+  app.use('/api/ai', aiRoutes);
+  app.use('/api/prescriptions', prescriptionRoutes);
+  app.use('/api/communication', communicationRoutes);
+} else {
+  // If routes failed to load, return the error for any API request
+  app.use('/api', (req, res) => {
+    res.status(500).json({ 
+      message: 'Server failed to initialize routes', 
+      error: routeLoadError 
+    });
+  });
+}
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error', error: err.message });
+});
 
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'production') {
