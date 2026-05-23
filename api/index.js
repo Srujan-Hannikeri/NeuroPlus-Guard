@@ -16,7 +16,6 @@ if (!process.env.GEMINI_API_KEY) {
 
 const express = require('express');
 const cors = require('cors');
-const http = require('http');
 const connectDB = require('../backend/config/db');
 const fs = require('fs');
 
@@ -35,11 +34,7 @@ const aiRoutes = require('../backend/routes/aiRoutes');
 const prescriptionRoutes = require('../backend/routes/prescriptionRoutes');
 const communicationRoutes = require('../backend/routes/communicationRoutes');
 
-// Connect to database
-connectDB();
-
 const app = express();
-const server = http.createServer(app);
 
 // Middleware
 app.use(cors({
@@ -47,10 +42,22 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.options('*', cors()); // Handle preflight requests
+app.options('*', cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(process.env.VERCEL ? '/tmp/uploads' : 'uploads'));
+
+// CRITICAL: Ensure database is connected BEFORE any route handler runs
+// On Vercel serverless, each cold start needs to wait for the DB connection
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB connection failed in middleware:', err.message);
+    res.status(500).json({ message: 'Database connection failed. Please try again.' });
+  }
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -61,7 +68,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/communication', communicationRoutes);
 
-// Health check — visit /api/health on Vercel to diagnose DB connection
+// Health check
 app.get('/api/health', (req, res) => {
   const mongoose = require('mongoose');
   const state = mongoose.connection.readyState;
@@ -69,8 +76,6 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     database: stateMap[state] || 'unknown',
-    mongo_uri_set: !!process.env.MONGO_URI,
-    jwt_secret_set: !!process.env.JWT_SECRET,
     timestamp: new Date().toISOString()
   });
 });
@@ -79,6 +84,8 @@ app.get('/', (req, res) => res.send('NeuroPlus Guard API is running...'));
 
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'production') {
+  const http = require('http');
+  const server = http.createServer(app);
   server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 

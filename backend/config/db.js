@@ -1,23 +1,28 @@
 const mongoose = require('mongoose');
 
-let isConnected;
+let cachedConnection = null;
 
 const connectDB = async () => {
-  if (isConnected) {
-    console.log('=> Using existing database connection');
-    return;
+  // If we already have a ready connection, reuse it
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
   }
-  
+
   try {
-    const db = await mongoose.connect(process.env.MONGO_URI, {
-      maxPoolSize: 50, // Maintain up to 50 socket connections
-      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      bufferCommands: true,
     });
-    isConnected = db.connections[0].readyState;
-    console.log(`MongoDB Connected: ${db.connection.host}`);
+    cachedConnection = conn;
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     console.error(`MongoDB Connection Error: ${error.message}`);
+    // Don't cache failed connections
+    cachedConnection = null;
+    throw error;
   }
 };
 
