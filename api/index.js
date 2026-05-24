@@ -81,6 +81,7 @@ app.get('/api/health', async (req, res) => {
   const stateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   
   res.json({
+    version: '1.0.2',
     status: state === 1 ? 'healthy' : 'unhealthy',
     database: stateMap[state] || 'unknown',
     dbError: dbError,
@@ -89,6 +90,9 @@ app.get('/api/health', async (req, res) => {
     env: {
       mongo_uri_set: !!process.env.MONGO_URI,
       mongo_uri_preview: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 30) + '...' : 'NOT SET',
+      mongo_uri_secure: process.env.MONGO_URI 
+        ? process.env.MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@').replace(/\/\/([^:]+):([^/]+)/, '//***:***')
+        : 'NOT SET',
       jwt_secret_set: !!process.env.JWT_SECRET,
       node_env: process.env.NODE_ENV || 'not set',
       vercel: !!process.env.VERCEL,
