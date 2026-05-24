@@ -1,8 +1,14 @@
 require('dotenv').config();
 
-// Fallback environment variables for Vercel deployment
-if (!process.env.MONGO_URI) {
-  process.env.MONGO_URI = 'mongodb+srv://srujanhannikeri_db_user:srujan0513@cluster0.lrakyrl.mongodb.net/neuroplus?retryWrites=true&w=majority';
+// Fallback and validation for database environment variables
+const correctMongoUri = 'mongodb+srv://srujanhannikeri_db_user:srujan0513@cluster0.lrakyrl.mongodb.net/neuroplus?retryWrites=true&w=majority';
+const isValidMongoUri = process.env.MONGO_URI && 
+                         process.env.MONGO_URI.startsWith('mongodb') && 
+                         process.env.MONGO_URI.includes('@') &&
+                         process.env.MONGO_URI.includes('.');
+
+if (!isValidMongoUri) {
+  process.env.MONGO_URI = correctMongoUri;
 }
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'neuroplusguardsecret123';
