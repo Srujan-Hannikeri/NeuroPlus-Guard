@@ -2,12 +2,10 @@ require('dotenv').config();
 
 // Fallback and validation for database environment variables
 const correctMongoUri = 'mongodb+srv://srujanhannikeri_db_user:srujan0513@cluster0.lrakyrl.mongodb.net/neuroplus?retryWrites=true&w=majority';
-const isValidMongoUri = process.env.MONGO_URI && 
-                         process.env.MONGO_URI.startsWith('mongodb') && 
-                         process.env.MONGO_URI.includes('@') &&
-                         process.env.MONGO_URI.includes('.');
 
-if (!isValidMongoUri) {
+// On Vercel, always force the correct connection string to prevent environment variable configuration issues.
+// Locally, allow using the value from the local .env file.
+if (process.env.VERCEL || !process.env.MONGO_URI) {
   process.env.MONGO_URI = correctMongoUri;
 }
 if (!process.env.JWT_SECRET) {
@@ -81,7 +79,7 @@ app.get('/api/health', async (req, res) => {
   const stateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   
   res.json({
-    version: '1.0.2',
+    version: '1.0.3',
     status: state === 1 ? 'healthy' : 'unhealthy',
     database: stateMap[state] || 'unknown',
     dbError: dbError,
@@ -90,9 +88,16 @@ app.get('/api/health', async (req, res) => {
     env: {
       mongo_uri_set: !!process.env.MONGO_URI,
       mongo_uri_preview: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 30) + '...' : 'NOT SET',
-      mongo_uri_secure: process.env.MONGO_URI 
-        ? process.env.MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@').replace(/\/\/([^:]+):([^/]+)/, '//***:***')
-        : 'NOT SET',
+      mongo_uri_secure: (() => {
+        if (!process.env.MONGO_URI) return 'NOT SET';
+        try {
+          const urlObj = new URL(process.env.MONGO_URI);
+          urlObj.password = '***';
+          return urlObj.toString();
+        } catch (e) {
+          return 'MALFORMED: ' + process.env.MONGO_URI.replace(/\/\/([^:]+):([^@\s/]+)/, '//***:***');
+        }
+      })(),
       jwt_secret_set: !!process.env.JWT_SECRET,
       node_env: process.env.NODE_ENV || 'not set',
       vercel: !!process.env.VERCEL,
