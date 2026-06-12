@@ -10,6 +10,12 @@ const appointmentSchema = new mongoose.Schema({
   feeAmount: { type: Number, default: 0 },
   amountPaid: { type: Number, default: 0 },
   feeStatus: { type: String, enum: ['Pending', 'Partial', 'Paid'], default: 'Pending' },
+  feeHistory: [{
+    amount: { type: Number, required: true },
+    amountPaid: { type: Number, default: 0 },
+    status: { type: String, enum: ['Pending', 'Partial', 'Paid'], default: 'Pending' },
+    date: { type: Date, default: Date.now }
+  }],
   callNotes: { type: String }
 }, { timestamps: true });
 

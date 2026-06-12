@@ -60,14 +60,15 @@ const Fees = () => {
     }
   };
 
-  const handlePayFee = (id, pendingAmount) => {
-    const amountToPay = Number(paymentAmounts[id] !== undefined ? paymentAmounts[id] : pendingAmount);
+  const handlePayFee = (id, feeId, pendingAmount) => {
+    const amountToPay = Number(paymentAmounts[feeId || id] !== undefined ? paymentAmounts[feeId || id] : pendingAmount);
     if (amountToPay <= 0) return alert('Enter a valid amount');
     if (amountToPay > pendingAmount) return alert('Cannot pay more than pending amount');
 
     const appt = appointments.find(a => a._id === id);
     setActivePaymentAppt({
       id,
+      feeId,
       amount: amountToPay,
       doctorName: appt?.doctor?.name || 'Doctor',
       patientName: appt?.patient?.name || 'Patient'
@@ -107,7 +108,10 @@ const Fees = () => {
     // Simulate gateway API processing
     setTimeout(async () => {
       try {
-        await api.put(`/appointments/${activePaymentAppt.id}/pay`, { amount: activePaymentAppt.amount });
+        await api.put(`/appointments/${activePaymentAppt.id}/pay`, { 
+          amount: activePaymentAppt.amount,
+          feeId: activePaymentAppt.feeId 
+        });
         
         setPaymentSuccessData({
           transactionId: 'TXN' + Math.floor(Math.random() * 90000000 + 10000000),
@@ -115,7 +119,7 @@ const Fees = () => {
           date: new Date().toLocaleString()
         });
         
-        setPaymentAmounts(prev => ({ ...prev, [activePaymentAppt.id]: '' }));
+        setPaymentAmounts(prev => ({ ...prev, [activePaymentAppt.feeId || activePaymentAppt.id]: '' }));
         fetchAppointments();
       } catch (error) {
         alert('Payment processing failed. Please check your credentials and try again.');
@@ -196,27 +200,39 @@ const Fees = () => {
         ) : (
           <div style={{ display: 'grid', gap: '16px' }}>
             {appointments
-              .filter(a => a.feeAmount > 0)
               .filter(a => user?.role !== 'Doctor' || (a.patient?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
-              .map((appt) => (
-              <div key={appt._id} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              .flatMap(appt => {
+                 if (appt.feeHistory && appt.feeHistory.length > 0) {
+                   return appt.feeHistory.map(fee => ({ appt, fee }));
+                 } else if (appt.feeAmount > 0) {
+                   return [{ appt, fee: { _id: 'legacy', amount: appt.feeAmount, amountPaid: appt.amountPaid || 0, status: appt.feeStatus, date: appt.scheduledAt || appt.createdAt } }];
+                 }
+                 return [];
+              })
+              .sort((a, b) => new Date(b.fee.date) - new Date(a.fee.date))
+              .map(({ appt, fee }, index) => {
+                const uniqueKey = fee._id === 'legacy' ? appt._id : fee._id;
+                const pendingBal = fee.amount - (fee.amountPaid || 0);
+                
+                return (
+              <div key={`${appt._id}-${uniqueKey}-${index}`} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                   <h4 style={{ color: 'var(--text-main)', marginBottom: '4px' }}>
                     {user?.role === 'Doctor' ? `Patient: ${appt.patient?.name}` : `Consultation with Dr. ${appt.doctor?.name}`}
                   </h4>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Date: {new Date(appt.scheduledAt || appt.createdAt).toLocaleDateString()}</p>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Date: {new Date(fee.date).toLocaleDateString()}</p>
                   <p style={{ fontSize: '1.1rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px' }}>
-                    Total Fee: ₹{appt.feeAmount}
+                    Total Fee: ₹{fee.amount}
                   </p>
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginTop: '4px' }}>
-                    Paid: ₹{appt.amountPaid || 0} <span style={{ color: 'var(--text-muted)' }}>(Pending: ₹{appt.feeAmount - (appt.amountPaid || 0)})</span>
+                    Paid: ₹{fee.amountPaid || 0} <span style={{ color: 'var(--text-muted)' }}>(Pending: ₹{pendingBal})</span>
                   </p>
-                  <p style={{ fontSize: '0.85rem', color: appt.feeStatus === 'Paid' ? '#10b981' : appt.feeStatus === 'Partial' ? '#f59e0b' : 'var(--error)', fontWeight: 'bold', marginTop: '4px' }}>
-                    Status: {appt.feeStatus}
+                  <p style={{ fontSize: '0.85rem', color: fee.status === 'Paid' ? '#10b981' : fee.status === 'Partial' ? '#f59e0b' : 'var(--error)', fontWeight: 'bold', marginTop: '4px' }}>
+                    Status: {fee.status}
                   </p>
                 </div>
                 
-                {user?.role === 'Patient' && appt.feeStatus !== 'Paid' && (
+                {user?.role === 'Patient' && fee.status !== 'Paid' && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     <p style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>Pay via UPI</p>
                     {appt.doctor?.upiQrCode ? (
@@ -228,18 +244,18 @@ const Fees = () => {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <input 
                         type="number" 
-                        placeholder={`Amount (Max: ₹${appt.feeAmount - (appt.amountPaid || 0)})`} 
+                        placeholder={`Amount (Max: ₹${pendingBal})`} 
                         className="input-field" 
                         style={{ width: '120px', padding: '6px' }}
-                        value={paymentAmounts[appt._id] !== undefined ? paymentAmounts[appt._id] : appt.feeAmount - (appt.amountPaid || 0)}
-                        onChange={(e) => setPaymentAmounts({ ...paymentAmounts, [appt._id]: e.target.value })}
+                        value={paymentAmounts[uniqueKey] !== undefined ? paymentAmounts[uniqueKey] : pendingBal}
+                        onChange={(e) => setPaymentAmounts({ ...paymentAmounts, [uniqueKey]: e.target.value })}
                       />
-                      <button onClick={() => handlePayFee(appt._id, appt.feeAmount - (appt.amountPaid || 0))} className="btn-primary" style={{ padding: '6px 16px', fontSize: '0.8rem' }}>Pay</button>
+                      <button onClick={() => handlePayFee(appt._id, fee._id === 'legacy' ? null : fee._id, pendingBal)} className="btn-primary" style={{ padding: '6px 16px', fontSize: '0.8rem' }}>Pay</button>
                     </div>
                   </div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
