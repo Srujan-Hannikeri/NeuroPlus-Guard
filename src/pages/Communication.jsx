@@ -7,6 +7,56 @@ import { Phone, Video, Send, Mic, MicOff, VideoOff, PhoneOff, User, MessageSquar
 import { API_BASE_URL } from '../config';
 import axios from 'axios';
 
+const playIncomingCallBeep = (() => {
+  let audioCtx = null;
+  let intervalId = null;
+
+  return {
+    start: () => {
+      if (intervalId) return; // Already playing
+      
+      const playBeep = () => {
+        try {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime); // High-pitched ring tone
+          
+          gain.gain.setValueAtTime(0, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime + 0.35);
+          gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.45);
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.45);
+        } catch (e) {
+          console.error("Audio beep error:", e);
+        }
+      };
+
+      playBeep();
+      intervalId = setInterval(playBeep, 1800); // Repeat every 1.8 seconds
+    },
+    stop: () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+  };
+})();
+
 const Communication = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -17,8 +67,15 @@ const Communication = () => {
   const [input, setInput] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  // Optimized: Removed unused transcription and AI notes states
+  const [transcription, setTranscription] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [aiNotes, setAiNotes] = useState('');
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
+  
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const lastScrollRoomId = useRef(null);
+  const lastMessageCount = useRef(0);
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -145,14 +202,28 @@ const Communication = () => {
     return () => clearInterval(interval);
   }, [roomId, hasJoined]);
 
-  // Auto-scroll to the bottom of the chat list when messages update
+  // Auto-scroll to the bottom of the chat list optimized to prevent double scroll lag
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages.length, selectedContact]);
+    if (!messagesEndRef.current || !roomId) return;
 
-  const selectContact = (appt) => {
+    if (lastScrollRoomId.current !== roomId) {
+      lastScrollRoomId.current = roomId;
+      lastMessageCount.current = messages.length;
+      if (messages.length > 0) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+      }
+      return;
+    }
+
+    if (messages.length > lastMessageCount.current) {
+      const isNewMessage = messages.length - lastMessageCount.current === 1;
+      messagesEndRef.current.scrollIntoView({ behavior: isNewMessage ? 'smooth' : 'auto' });
+    }
+    
+    lastMessageCount.current = messages.length;
+  }, [messages.length, roomId]);
+
+  const selectContact = (appt, startCallImmediately = false) => {
     const contactId = user?.role === 'Doctor' ? appt.patient?._id : appt.doctor?._id;
     if (contactId) {
       setSearchParams({ contactId });
@@ -163,9 +234,15 @@ const Communication = () => {
     setSelectedContact(appt);
     setRoomId(rId);
     setMessages([]);
-    setHasJoined(false);
     setIsFullscreen(false);
     setActiveOffer(null);
+    setTranscription('');
+    setAiNotes('');
+    if (startCallImmediately) {
+      setHasJoined(true);
+    } else {
+      setHasJoined(false);
+    }
   };
 
   // Poll all rooms for new message counts and incoming calls globally
@@ -234,6 +311,77 @@ const Communication = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Handle incoming call beep sound
+  useEffect(() => {
+    const hasIncomingCall = (globalIncomingCall || (activeOffer && !hasJoined));
+    if (hasIncomingCall && !hasJoined) {
+      playIncomingCallBeep.start();
+    } else {
+      playIncomingCallBeep.stop();
+    }
+    
+    return () => {
+      playIncomingCallBeep.stop();
+    };
+  }, [globalIncomingCall, activeOffer, hasJoined]);
+
+  // Handle Speech Recognition for AI Consultation Notes
+  useEffect(() => {
+    if (!hasJoined) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      setIsTranscribing(false);
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn("Speech Recognition not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      let currentTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        currentTranscript += event.results[i][0].transcript + ' ';
+      }
+      setTranscription(prev => (prev + ' ' + currentTranscript).trim());
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech Recognition error:", event.error);
+    };
+
+    recognition.onend = () => {
+      if (hasJoined && recognitionRef.current) {
+        try { recognition.start(); } catch {}
+      }
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsTranscribing(true);
+    } catch (e) {
+      console.error(e);
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      setIsTranscribing(false);
+    };
+  }, [hasJoined]);
+
   const exitNativeFullscreen = () => {
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -277,6 +425,25 @@ const Communication = () => {
         { urls: 'stun:stun1.l.google.com:19302' },
       ]
     });
+
+    // Automatically end call if counterpart disconnects
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === 'disconnected' || 
+          peer.connectionState === 'failed' || 
+          peer.connectionState === 'closed') {
+        console.log("Peer connection disconnected/failed/closed, ending call.");
+        endCall();
+      }
+    };
+
+    peer.oniceconnectionstatechange = () => {
+      if (peer.iceConnectionState === 'disconnected' || 
+          peer.iceConnectionState === 'failed' || 
+          peer.iceConnectionState === 'closed') {
+        console.log("ICE connection disconnected/failed/closed, ending call.");
+        endCall();
+      }
+    };
 
     peer.onicecandidate = async (event) => {
       if (event.candidate && roomId) {
@@ -441,7 +608,21 @@ const Communication = () => {
     }
   };
 
-  // Removed defunct AI notes speech generators to save memory
+  const generateAINotes = async () => {
+    if (!transcription.trim()) return alert("No transcription available to generate notes.");
+    setIsGeneratingNotes(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/ai/chat`, {
+        prompt: `Generate a brief medical summary/notes from this consultation transcript: ${transcription}`
+      });
+      setAiNotes(res.data.reply);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate notes.");
+    } finally {
+      setIsGeneratingNotes(false);
+    }
+  };
 
   // Close peer connections, turn off camera/microphone hardware, clear DB states, and return to grid list
   const endCall = () => {
@@ -526,10 +707,7 @@ const Communication = () => {
           onClick={() => {
             setIsAudioCall(!!globalIncomingCall.offer.isAudioCall);
             setIsInitiator(false);
-            selectContact(globalIncomingCall.appointment);
-            setTimeout(() => {
-              initiateCall(false);
-            }, 150);
+            selectContact(globalIncomingCall.appointment, true);
           }}
           className="pulse-incoming-call"
           style={{
@@ -955,7 +1133,7 @@ const Communication = () => {
                       {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
                       
                       {/* Self Video PIP */}
-                      <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
+                      <div style={{ position: 'absolute', bottom: isMobile ? '85px' : '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
                          <video 
                             ref={localVideoRef} 
                             autoPlay 
@@ -1125,7 +1303,33 @@ const Communication = () => {
                   </button>
                 </form>
 
-                // AI Notes placeholder removed for high-speed lightweight operation
+                {/* AI Notes Section */}
+                {(hasJoined || transcription || aiNotes) && (
+                  <div style={{ padding: '10px 14px', borderTop: '1.5px solid var(--glass-border)', background: 'rgba(15, 130, 135, 0.03)', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <h5 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 'bold' }}>AI Consultation Notes</h5>
+                      <button 
+                        onClick={generateAINotes} 
+                        disabled={isGeneratingNotes || !transcription} 
+                        className="btn-primary" 
+                        style={{ padding: '3px 10px', fontSize: '0.7rem', borderRadius: '12px' }}
+                      >
+                        {isGeneratingNotes ? 'Generating...' : 'Generate Notes'}
+                      </button>
+                    </div>
+                    {aiNotes ? (
+                      <div style={{ fontSize: '0.78rem', color: '#334155', maxHeight: '90px', overflowY: 'auto', background: '#fff', padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', lineHeight: '1.4' }}>
+                        {aiNotes}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, fontStyle: 'italic' }}>
+                        {transcription 
+                          ? "Conversation transcribed. Click 'Generate Notes' to summarize." 
+                          : "Transcribing call in real time... speak to start capturing."}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             

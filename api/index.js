@@ -63,7 +63,7 @@ app.use('/uploads', express.static(process.env.VERCEL ? '/tmp/uploads' : 'upload
 
 // Health check BEFORE database middleware — always accessible for diagnostics
 app.get('/api/health', async (req, res) => {
-  const mongoose = require('mongoose');
+  const mongoose = connectDB.mongoose || require('mongoose');
   let dbError = null;
   
   // Try connecting if not connected

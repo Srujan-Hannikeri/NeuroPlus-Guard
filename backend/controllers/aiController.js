@@ -41,12 +41,17 @@ exports.chatWithAI = async (req, res) => {
        contents[0] = "You are a helpful medical AI assistant. User prompt: " + prompt;
     }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: contents,
-    });
-
-    res.json({ reply: response.text });
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+      });
+      res.json({ reply: response.text });
+    } catch (apiError) {
+      console.warn("Gemini API call failed, using mock fallback:", apiError.message);
+      let simulatedReply = "I am currently running in offline simulation mode because the configured Gemini API key is invalid, leaked, or blocked by Google. To activate live AI, please update the GEMINI_API_KEY environment variable.\n\nBased on your description, here is a simulated general assessment:\n- **Analysis**: The symptoms described could be related to temporary fatigue, environmental changes, or mild dehydration.\n- **Recommendations**: Rest, drink plenty of fluids, and monitor your condition. If you experience severe pain, high fever, or breathing difficulties, please seek immediate medical attention from one of our platform doctors.";
+      res.json({ reply: simulatedReply });
+    }
 
   } catch (error) {
     console.error("AI Error:", error);
