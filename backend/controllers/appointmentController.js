@@ -1,4 +1,70 @@
 const Appointment = require('../models/Appointment');
+const https = require('https');
+
+const verifyPaymentWithGateway = (paymentData) => {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      gateway: 'MockPay',
+      amount: paymentData.amount,
+      method: paymentData.method,
+      details: paymentData.details,
+      timestamp: Date.now()
+    });
+
+    const options = {
+      hostname: 'httpbin.org',
+      port: 443,
+      path: '/post',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          // If response is 200, we consider HTTPS transaction recorded.
+          // Now, check payment details for business logic validation:
+          if (paymentData.method === 'card') {
+            const cvv = String(paymentData.details.cvv || '').trim();
+            if (cvv === '000' || cvv === '999') {
+              return resolve({ success: false, message: 'Card declined by issuing bank (CVV rejected).' });
+            }
+            const name = String(paymentData.details.cardName || '').toLowerCase();
+            if (name.includes('decline') || name.includes('fail')) {
+              return resolve({ success: false, message: 'Card declined: Insufficient funds.' });
+            }
+          } else if (paymentData.method === 'upi') {
+            const upiId = String(paymentData.details.upiId || '').toLowerCase().trim();
+            if (upiId.includes('fail') || upiId.includes('decline')) {
+              return resolve({ success: false, message: 'UPI transaction rejected by bank.' });
+            }
+          } else if (paymentData.method === 'netbanking') {
+            const bank = String(paymentData.details.bank || '').trim();
+            if (bank.toLowerCase().includes('fail') || bank.toLowerCase().includes('decline')) {
+              return resolve({ success: false, message: 'NetBanking authentication failed.' });
+            }
+          }
+          
+          resolve({ success: true, transactionId: 'TXN' + Math.floor(Math.random() * 90000000 + 10000000) });
+        } catch (e) {
+          resolve({ success: false, message: 'Failed to process gateway response.' });
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      resolve({ success: false, message: 'Payment gateway connection timeout: ' + err.message });
+    });
+
+    req.write(payload);
+    req.end();
+  });
+};
 
 exports.requestAppointment = async (req, res) => {
   try {
@@ -102,7 +168,19 @@ exports.updateAppointmentFee = async (req, res) => {
 exports.payAppointmentFee = async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount, feeId } = req.body;
+    const { amount, feeId, paymentMethod, paymentDetails } = req.body;
+    
+    if (paymentMethod) {
+      const gateResult = await verifyPaymentWithGateway({
+        amount,
+        method: paymentMethod,
+        details: paymentDetails
+      });
+      
+      if (!gateResult.success) {
+        return res.status(400).json({ message: gateResult.message });
+      }
+    }
     
     // Patient marks fee as paid
     const appointment = await Appointment.findOne({ _id: id, patient: req.user._id });

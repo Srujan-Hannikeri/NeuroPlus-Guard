@@ -57,6 +57,20 @@ const playIncomingCallBeep = (() => {
   };
 })();
 
+const mergeMessages = (localMsgs, serverMsgs) => {
+  if (!serverMsgs || serverMsgs.length === 0) return localMsgs;
+  const optimisticMsgs = localMsgs.filter(m => !m._id);
+  if (optimisticMsgs.length === 0) return serverMsgs;
+  
+  const unsavedOptimistic = [];
+  const lastServerMsgs = serverMsgs.slice(-5);
+  optimisticMsgs.forEach(opt => {
+    const isSaved = lastServerMsgs.some(srv => srv.senderId === opt.senderId && srv.text === opt.text);
+    if (!isSaved) unsavedOptimistic.push(opt);
+  });
+  return [...serverMsgs, ...unsavedOptimistic];
+};
+
 const Communication = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -76,6 +90,7 @@ const Communication = () => {
   const recognitionRef = useRef(null);
   const lastScrollRoomId = useRef(null);
   const lastMessageCount = useRef(0);
+  const currentRoomIdRef = useRef('');
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -142,10 +157,24 @@ const Communication = () => {
             });
             if (matched) {
               setSelectedContact(matched);
-              setRoomId(`room-${matched._id}`);
+              const targetRoomId = `room-${matched._id}`;
+              if (currentRoomIdRef.current !== targetRoomId) {
+                setRoomId(targetRoomId);
+                currentRoomIdRef.current = targetRoomId;
+                if (location.state?.startCallImmediately) {
+                  setIsAudioCall(!!location.state?.isAudioCall);
+                  setIsInitiator(false);
+                  setHasJoined(true);
+                } else {
+                  setHasJoined(false);
+                }
+                setIsFullscreen(false);
+              } else if (location.state?.startCallImmediately && !hasJoined) {
+                setIsAudioCall(!!location.state?.isAudioCall);
+                setIsInitiator(false);
+                setHasJoined(true);
+              }
               setMessages([]);
-              setHasJoined(false);
-              setIsFullscreen(false);
             }
           }
         } else if (autoSelectAppointmentId) {
@@ -153,16 +182,31 @@ const Communication = () => {
             const matched = data.find(a => a._id === autoSelectAppointmentId);
             if (matched) {
               setSelectedContact(matched);
-              setRoomId(`room-${matched._id}`);
+              const targetRoomId = `room-${matched._id}`;
+              if (currentRoomIdRef.current !== targetRoomId) {
+                setRoomId(targetRoomId);
+                currentRoomIdRef.current = targetRoomId;
+                if (location.state?.startCallImmediately) {
+                  setIsAudioCall(!!location.state?.isAudioCall);
+                  setIsInitiator(false);
+                  setHasJoined(true);
+                } else {
+                  setHasJoined(false);
+                }
+                setIsFullscreen(false);
+              } else if (location.state?.startCallImmediately && !hasJoined) {
+                setIsAudioCall(!!location.state?.isAudioCall);
+                setIsInitiator(false);
+                setHasJoined(true);
+              }
               setMessages([]);
-              setHasJoined(false);
-              setIsFullscreen(false);
             }
           }
         } else {
           // If no search param or state is set, clear the active workspace to return to grid list
           setSelectedContact(null);
           setRoomId('');
+          currentRoomIdRef.current = '';
           setMessages([]);
           setHasJoined(false);
           setIsFullscreen(false);
@@ -173,7 +217,7 @@ const Communication = () => {
       }
     };
     fetchAppointments();
-  }, [autoSelectAppointmentId, contactIdParam, user]);
+  }, [autoSelectAppointmentId, contactIdParam, user, location.state]);
 
   // Poll messages and signaling for active chat room even if call is not started
   useEffect(() => {
@@ -183,7 +227,7 @@ const Communication = () => {
       try {
         const { data } = await api.get(`/communication/${roomId}?markAsSeen=true`);
         if (data.messages) {
-          setMessages(data.messages);
+          setMessages(prev => mergeMessages(prev, data.messages));
           setNewMessageCounts(prev => ({ ...prev, [roomId]: 0 }));
         }
         // Sync active offer state
@@ -232,6 +276,7 @@ const Communication = () => {
     // Mark this room as read immediately in frontend state
     setNewMessageCounts(prev => ({ ...prev, [rId]: 0 }));
     setSelectedContact(appt);
+    currentRoomIdRef.current = rId;
     setRoomId(rId);
     setMessages([]);
     setIsFullscreen(false);
@@ -348,11 +393,15 @@ const Communication = () => {
     recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
-      let currentTranscript = '';
+      let finalTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        currentTranscript += event.results[i][0].transcript + ' ';
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + ' ';
+        }
       }
-      setTranscription(prev => (prev + ' ' + currentTranscript).trim());
+      if (finalTranscript) {
+        setTranscription(prev => (prev + ' ' + finalTranscript).trim());
+      }
     };
 
     recognition.onerror = (event) => {
@@ -514,7 +563,7 @@ const Communication = () => {
             // Auto-Disconnect detection: if counterpart ended call, their endCall cleared signaling.
             // When we poll and see no active offer/answer but we are inside call, we shut down too!
             // We gate this check by hasOffered/hasAnswered to avoid startup race conditions.
-            const isNegotiated = isInitiator ? hasOffered.current : hasAnswered.current;
+            const isNegotiated = isInitiator ? hasOffered.current : true;
             if (isNegotiated && !data.offer && !data.answer) {
               if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
@@ -532,6 +581,7 @@ const Communication = () => {
               setRemoteStream(null);
               setHasJoined(false);
               setSelectedContact(null);
+              currentRoomIdRef.current = '';
               setRoomId('');
               setSearchParams({});
               return;
@@ -539,7 +589,7 @@ const Communication = () => {
 
             // Handle Messages Sync
             if (data.messages && data.messages.length > 0) {
-              setMessages(data.messages);
+              setMessages(prev => mergeMessages(prev, data.messages));
             }
 
             // If not initiator, answer the offer
@@ -660,6 +710,7 @@ const Communication = () => {
     
     // 8. Reset selected contact to go back to Connected Contacts Grid list
     setSelectedContact(null);
+    currentRoomIdRef.current = '';
     setRoomId('');
     setSearchParams({});
   };
@@ -1133,7 +1184,7 @@ const Communication = () => {
                       {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
                       
                       {/* Self Video PIP */}
-                      <div style={{ position: 'absolute', bottom: isMobile ? '85px' : '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
+                      <div style={{ position: 'absolute', bottom: isMobile ? '125px' : '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
                          <video 
                             ref={localVideoRef} 
                             autoPlay 

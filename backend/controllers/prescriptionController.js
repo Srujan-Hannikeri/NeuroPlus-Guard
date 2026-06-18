@@ -132,3 +132,5 @@ exports.updateStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.autoMarkMissedDosages = autoMarkMissedDosages;

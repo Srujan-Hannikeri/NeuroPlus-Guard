@@ -147,6 +147,28 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
+// Start background cron job to auto-mark missed dosages for all patients globally
+const runAutoMarkMissedDosagesGlobal = async () => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return; // Wait for DB connection
+    
+    const User = require('../backend/models/User');
+    const { autoMarkMissedDosages } = require('../backend/controllers/prescriptionController');
+    const patients = await User.find({ role: 'Patient' }, '_id');
+    for (const patient of patients) {
+      await autoMarkMissedDosages(patient._id);
+    }
+    console.log('[CRON] Auto-marked missed dosages globally.');
+  } catch (err) {
+    console.error('Failed to run global autoMarkMissedDosages:', err.message);
+  }
+};
+// Run every hour
+setInterval(runAutoMarkMissedDosagesGlobal, 3600000);
+// Run once 10 seconds after startup
+setTimeout(runAutoMarkMissedDosagesGlobal, 10000);
+
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'production') {
   const http = require('http');

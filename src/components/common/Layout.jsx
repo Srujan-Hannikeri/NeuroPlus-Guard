@@ -1,15 +1,240 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Sidebar from './Sidebar';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../context/AuthContext';
+import api from '../../services/api';
+import { Phone, PhoneOff } from 'lucide-react';
+
+const playIncomingCallBeepGlobal = (() => {
+  let audioCtx = null;
+  let intervalId = null;
+
+  return {
+    start: () => {
+      if (intervalId) return; // Already playing
+      const playBeep = () => {
+        try {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime + 0.35);
+          gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.45);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.45);
+        } catch (e) {
+          console.error("Audio beep error:", e);
+        }
+      };
+      playBeep();
+      intervalId = setInterval(playBeep, 1800);
+    },
+    stop: () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+  };
+})();
 
 const Layout = ({ children }) => {
+  const { user } = useContext(AuthContext);
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [incomingCall, setIncomingCall] = useState(null);
+
   const isConsultation = location.pathname === '/consultation';
   const isChatting = isConsultation && searchParams.get('contactId');
 
+  useEffect(() => {
+    if (!user) return;
+    // Don't poll in layout if we are already on the consultation page to avoid duplicate intervals/beeps
+    if (location.pathname === '/consultation') {
+      playIncomingCallBeepGlobal.stop();
+      setIncomingCall(null);
+      return;
+    }
+
+    let isMounted = true;
+    const pollIncomingCalls = async () => {
+      try {
+        const { data: appointments } = await api.get('/appointments');
+        if (!isMounted) return;
+        
+        const apptList = Array.isArray(appointments) ? appointments : [];
+        if (apptList.length === 0) return;
+        
+        const roomIds = apptList.map(appt => `room-${appt._id}`);
+        const { data: rooms } = await api.post('/communication/summary', { roomIds });
+        if (!isMounted) return;
+        
+        let activeIncoming = null;
+        rooms.forEach(room => {
+          const appt = apptList.find(a => `room-${a._id}` === room.roomId);
+          if (!appt) return;
+          
+          if (room.offer && !room.answer && room.offer.senderId !== user._id) {
+            activeIncoming = {
+              appointment: appt,
+              roomId: room.roomId,
+              offer: room.offer
+            };
+          }
+        });
+        
+        setIncomingCall(activeIncoming);
+        if (activeIncoming) {
+          playIncomingCallBeepGlobal.start();
+        } else {
+          playIncomingCallBeepGlobal.stop();
+        }
+      } catch (err) {
+        console.error("Error polling incoming calls in layout:", err);
+      }
+    };
+    
+    pollIncomingCalls();
+    const interval = setInterval(pollIncomingCalls, 5000);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      playIncomingCallBeepGlobal.stop();
+    };
+  }, [user, location.pathname]);
+
+  const handleAnswer = (call) => {
+    playIncomingCallBeepGlobal.stop();
+    setIncomingCall(null);
+    const contactId = user.role === 'Doctor' ? call.appointment.patient?._id : call.appointment.doctor?._id;
+    navigate(`/consultation?contactId=${contactId}`, {
+      state: {
+        autoSelectAppointmentId: call.appointment._id,
+        startCallImmediately: true,
+        isAudioCall: !!call.offer.isAudioCall
+      }
+    });
+  };
+
+  const handleDecline = async (call) => {
+    playIncomingCallBeepGlobal.stop();
+    setIncomingCall(null);
+    try {
+      await api.post(`/communication/${call.roomId}/signal`, { clearSignal: true });
+    } catch (err) {
+      console.error("Failed to decline call:", err);
+    }
+  };
+
   return (
     <div className={`app-layout${isConsultation ? ' consultation-layout-active' : ''}${isChatting ? ' chatting-active' : ''}`}>
+      <style>{`
+        @keyframes slideDownGlobal {
+          from { transform: translate(-50%, -100px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+      `}</style>
+      
+      {incomingCall && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '90%',
+          maxWidth: '450px',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+          border: '1.5px solid var(--primary)',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3)',
+          borderRadius: '16px',
+          padding: '16px',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          color: '#fff',
+          animation: 'slideDownGlobal 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              color: '#fff'
+            }}>
+              {(user.role === 'Doctor' ? incomingCall.appointment.patient?.name : incomingCall.appointment.doctor?.name)?.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 'bold', letterSpacing: '0.3px' }}>
+                Incoming consultation call...
+              </h5>
+              <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                {user.role === 'Doctor' ? incomingCall.appointment.patient?.name : `Dr. ${incomingCall.appointment.doctor?.name?.replace(/^Dr\.\s*/i, '')}`}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <button 
+              onClick={() => handleAnswer(incomingCall)}
+              style={{
+                background: '#10b981',
+                border: 'none',
+                color: '#fff',
+                padding: '8px 14px',
+                borderRadius: '24px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              Answer
+            </button>
+            <button 
+              onClick={() => handleDecline(incomingCall)}
+              style={{
+                background: '#ef4444',
+                border: 'none',
+                color: '#fff',
+                padding: '8px 14px',
+                borderRadius: '24px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+              }}
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <main
         className={`main-content${isConsultation ? ' consultation-main' : ''}`}

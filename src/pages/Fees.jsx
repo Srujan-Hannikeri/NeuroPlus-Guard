@@ -83,6 +83,7 @@ const Fees = () => {
   };
 
   const submitGatewayPayment = async () => {
+    let details = {};
     if (paymentMethod === 'card') {
       if (!cardNumber || !cardExpiry || !cardCvv || !cardName) {
         return alert('Please fill in all card details');
@@ -90,6 +91,7 @@ const Fees = () => {
       if (cardNumber.replace(/\s/g, '').length < 16) {
         return alert('Please enter a valid 16-digit card number');
       }
+      details = { cardNumber, cardExpiry, cvv: cardCvv, cardName };
     } else if (paymentMethod === 'upi') {
       if (!upiId) {
         return alert('Please enter a valid UPI ID');
@@ -97,37 +99,38 @@ const Fees = () => {
       if (!upiId.includes('@')) {
         return alert('UPI ID must contain the @ symbol');
       }
+      details = { upiId };
     } else if (paymentMethod === 'netbanking') {
       if (!selectedBank) {
         return alert('Please select your bank');
       }
+      details = { bank: selectedBank };
     }
 
     setIsProcessingPayment(true);
     
-    // Simulate gateway API processing
-    setTimeout(async () => {
-      try {
-        await api.put(`/appointments/${activePaymentAppt.id}/pay`, { 
-          amount: activePaymentAppt.amount,
-          feeId: activePaymentAppt.feeId 
-        });
-        
-        setPaymentSuccessData({
-          transactionId: 'TXN' + Math.floor(Math.random() * 90000000 + 10000000),
-          amount: activePaymentAppt.amount,
-          date: new Date().toLocaleString()
-        });
-        
-        setPaymentAmounts(prev => ({ ...prev, [activePaymentAppt.feeId || activePaymentAppt.id]: '' }));
-        fetchAppointments();
-      } catch (error) {
-        alert('Payment processing failed. Please check your credentials and try again.');
-        setActivePaymentAppt(null);
-      } finally {
-        setIsProcessingPayment(false);
-      }
-    }, 2000);
+    try {
+      const { data } = await api.put(`/appointments/${activePaymentAppt.id}/pay`, { 
+        amount: activePaymentAppt.amount,
+        feeId: activePaymentAppt.feeId,
+        paymentMethod: paymentMethod,
+        paymentDetails: details
+      });
+      
+      setPaymentSuccessData({
+        transactionId: 'TXN' + Math.floor(Math.random() * 90000000 + 10000000),
+        amount: activePaymentAppt.amount,
+        date: new Date().toLocaleString()
+      });
+      
+      setPaymentAmounts(prev => ({ ...prev, [activePaymentAppt.feeId || activePaymentAppt.id]: '' }));
+      fetchAppointments();
+    } catch (error) {
+      const errMsg = error.response?.data?.message || 'Payment processing failed. Please check your credentials and try again.';
+      alert(errMsg);
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   return (
