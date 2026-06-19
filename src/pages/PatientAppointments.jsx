@@ -40,7 +40,45 @@ const PatientAppointments = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const openPaymentModal = (appt) => {
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [requestNotes, setRequestNotes] = useState('');
+  const [isEmergencyReq, setIsEmergencyReq] = useState(false);
+  // Assuming a list of doctors can be fetched; for demo we use placeholder array
+  const [doctors, setDoctors] = useState([]);
+
+  // Fetch doctors list when component mounts
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const { data } = await api.get('/doctors'); // endpoint should return [{_id, name}]
+        setDoctors(data);
+      } catch (e) {
+        console.error('Failed to fetch doctors', e);
+      }
+    };
+    fetchDoctors();
+  }, []);
+
+  const openRequestModal = () => setRequestModalOpen(true);
+
+  const submitRequest = async () => {
+    if (!selectedDoctorId) return alert('Select a doctor');
+    try {
+      await api.post('/appointments/request', {
+        doctorId: selectedDoctorId,
+        notes: requestNotes,
+        isEmergency: isEmergencyReq,
+      });
+      setRequestModalOpen(false);
+      // Refresh appointments list
+      const { data } = await api.get('/appointments');
+      setAppointments(data);
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to request appointment');
+    }
+  };
+ {
     setPaymentApptId(appt._id);
     setPaymentAmount(appt.feeAmount);
     setPaymentSuccess(false);
@@ -113,6 +151,9 @@ const PatientAppointments = () => {
         </div>
       </nav>
 
+          <button onClick={openRequestModal} className="btn-primary" style={{ background: 'var(--secondary)', marginBottom: '16px' }}>
+            Request New Appointment
+          </button>
       {loading ? (
         <p>Loading appointments…</p>
       ) : (
@@ -124,9 +165,10 @@ const PatientAppointments = () => {
               {appointments.map(appt => (
                 <div key={appt._id} className="glass-panel" style={{ padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h4 style={{ margin: 0 }}>{appt.doctor?.name || 'Doctor'} – {new Date(appt.scheduledAt).toLocaleDateString()} <span style={{ color: '#555', fontSize: '0.85rem' }}>{new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></h4>
+                    <h4 style={{ margin: 0 }}>{appt.doctor?.name || 'Doctor'} – {new Date(appt.scheduledAt || appt.createdAt).toLocaleDateString()} <span style={{ color: '#555', fontSize: '0.85rem' }}>{new Date(appt.scheduledAt || appt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></h4>
                     <p style={{ margin: '4px 0' }}>{appt.notes}</p>
                     <span style={{ fontSize: '0.85rem', color: '#555' }}>Status: {appt.status}</span>
+                    <p style={{ fontSize: '0.75rem', color: '#555', textAlign: 'right', marginTop: '4px' }}>{new Date(appt.scheduledAt || appt.createdAt).toLocaleString()}</p>
                   </div>
                   <div>
                     {appt.status === 'Accepted' && (!appt.feeStatus || appt.feeStatus === 'Pending') && (
@@ -144,6 +186,42 @@ const PatientAppointments = () => {
           )}
         </div>
       )}
+
+        {/* Request Appointment Modal */}
+        {requestModalOpen && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+            <div className="glass-panel" style={{ width: '90%', maxWidth: '400px', padding: '32px', borderRadius: '16px', background: 'rgba(255,255,255,0.95)', position: 'relative' }}>
+              <h3 style={{ margin: '0 0 12px 0', color: 'var(--primary)' }}>Request Appointment</h3>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Select Doctor</label>
+                <select className="input-field" value={selectedDoctorId} onChange={(e) => setSelectedDoctorId(e.target.value)} style={{ width: '100%' }}>
+                  <option value="">Choose Doctor</option>
+                  {doctors.map((doc) => (
+                    <option key={doc._id} value={doc._id}>
+                      {doc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Notes (optional)</label>
+                <textarea className="input-field" rows={3} value={requestNotes} onChange={(e) => setRequestNotes(e.target.value)} style={{ width: '100%' }} />
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Emergency?</label>
+                <input type="checkbox" checked={isEmergencyReq} onChange={(e) => setIsEmergencyReq(e.target.checked)} style={{ marginLeft: '8px' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                <button onClick={submitRequest} className="btn-primary" style={{ flex: 1 }}>
+                  Submit Request
+                </button>
+                <button onClick={() => setRequestModalOpen(false)} className="btn-primary" style={{ flex: 1, background: '#cbd5e1', color: '#1e293b' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Payment Modal */}
       {paymentModalOpen && (

@@ -40,41 +40,36 @@ const DoctorDashboard = () => {
 
   const openScheduleModal = (appt) => {
     setSelectedAppointment(appt);
+    // Pre‑fill date picker with existing scheduled time if present (ISO format for datetime‑local)
+    const prefill = appt.scheduledAt ? new Date(appt.scheduledAt).toISOString().slice(0, 16) : '';
+    setScheduleDate(prefill);
     setScheduleModalOpen(true);
   };
 
   const handleScheduleAppointment = async () => {
-    if (!scheduleDate) return alert("Please select a date and time.");
-    if (feeAmount === '' || isNaN(feeAmount) || Number(feeAmount) < 0) return alert("Please enter a valid consultation fee amount (0 for free).");
-    
-    if (selectedAppointment?.isEmergency) {
-      const selected = new Date(scheduleDate);
-      const maxDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      if (selected > maxDate) {
-        return alert("Emergency appointments MUST be scheduled within 24 hours.");
-      }
-    }
+    if (!scheduleDate) return alert('Please select a date and time.');
+    if (feeAmount === '' || isNaN(feeAmount) || Number(feeAmount) < 0) return alert('Please enter a valid consultation fee amount (0 for free).');
 
     try {
-      await api.put(`/appointments/${selectedAppointment._id}/status`, { 
-        status: 'Accepted',
-        scheduledAt: scheduleDate
-      });
-      
-      // Update the fee amount immediately after accepting
-      await api.put(`/appointments/${selectedAppointment._id}/fee`, {
-        feeAmount: Number(feeAmount)
-      });
-      
-      // Refresh appointments
+      // If the appointment is still pending, we need to accept it with a scheduled time.
+      // If it's already accepted, we just update the scheduledAt field.
+      const payload = selectedAppointment?.status === 'Pending'
+        ? { status: 'Accepted', scheduledAt: scheduleDate }
+        : { scheduledAt: scheduleDate };
+
+      await api.put(`/appointments/${selectedAppointment._id}/status`, payload);
+
+      // Update the fee amount regardless of status change.
+      await api.put(`/appointments/${selectedAppointment._id}/fee`, { feeAmount: Number(feeAmount) });
+
       const appointmentsRes = await api.get('/appointments');
       setAppointments(appointmentsRes.data);
       setScheduleModalOpen(false);
       setSelectedAppointment(null);
       setFeeAmount('');
-      alert('Appointment Scheduled successfully!');
+      alert('Appointment schedule updated successfully!');
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to accept appointment');
+      alert(error.response?.data?.message || 'Failed to schedule appointment');
       console.error(error);
     }
   };
@@ -161,13 +156,17 @@ const DoctorDashboard = () => {
                           <User size={16} />
                         </div>
                       )}
-                      Patient: {appt.patient?.name || 'Unknown'}
-                      {appt.isEmergency && <span style={{ marginLeft: '8px', background: 'var(--error)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem' }}>EMERGENCY</span>}
+                      {appt.patient?.name || 'Unknown'}{appt.isEmergency && <span style={{ marginLeft: '8px', background: 'var(--error)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem' }}>EMERGENCY</span>}
+                      — {new Date(appt.scheduledAt || appt.createdAt).toLocaleDateString()} <span style={{ color: '#555', fontSize: '0.85rem' }}>{new Date(appt.scheduledAt || appt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </h4>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                      {appt.scheduledAt ? `Scheduled for ${new Date(appt.scheduledAt).toLocaleString()}` : `Requested at ${new Date(appt.createdAt).toLocaleString()}`}
+                    <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#555' }}>
+                      {new Date(appt.scheduledAt || appt.createdAt).toLocaleString()}
                     </p>
                     <p style={{ fontSize: '0.85rem', color: appt.status === 'Pending' ? 'var(--error)' : 'var(--primary)', fontWeight: 'bold' }}>Status: {appt.status}</p>
+                    {/* Date at bottom‑right */}
+                    <p style={{ fontSize: '0.75rem', color: '#555', textAlign: 'right', marginTop: '4px' }}>
+                      {new Date(appt.scheduledAt || appt.createdAt).toLocaleString()}
+                    </p>
                     {appt.notes && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px' }}>"{appt.notes}"</p>}
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -188,12 +187,22 @@ const DoctorDashboard = () => {
                       </>
                     )}
                      {appt.status === 'Accepted' && (
-                       <button 
-                        onClick={() => handleCompleteAppointment(appt._id)}
-                        className="btn-primary" 
-                        style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#10b981' }}>
-                        Complete Consultation
-                       </button>
+                      <>
+                        <button 
+                          onClick={() => handleCompleteAppointment(appt._id)}
+                          className="btn-primary" 
+                          style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#10b981' }}
+                        >
+                          Complete Consultation
+                        </button>
+                        <button 
+                          onClick={() => openScheduleModal(appt)}
+                          className="btn-primary" 
+                          style={{ padding: '8px 16px', fontSize: '0.9rem', background: 'var(--secondary)', marginLeft: '8px' }}
+                        >
+                          Reschedule
+                        </button>
+                      </>
                      )}
                      <button 
                       onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: appt._id } })}
