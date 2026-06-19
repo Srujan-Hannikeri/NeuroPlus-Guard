@@ -265,6 +265,41 @@ body {
   animation: spin 1s linear infinite;
 }
 
+/* Appointment card responsive enhancements */
+.appointment-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* New class for time display */
+.appointment-time {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* New class for button actions */
+.appointment-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Ensure buttons stack and fill width on small screens */
+@media (max-width: 768px) {
+  .appointment-card .btn-primary {
+    flex: 1 1 100%;
+    margin: 4px 0;
+    width: 100%;
+  }
+  .appointment-card .btn-primary + .btn-primary {
+    margin-top: 8px;
+  }
+  .appointment-actions {
+    flex-direction: column;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 992px) {
   .sidebar {
@@ -961,6 +996,34 @@ body {
   padding: 0 24px !important;
   box-shadow: 0 -4px 15px rgba(21, 78, 120, 0.03) !important;
   z-index: 10 !important;
+}
+
+/* Appointment card container – ensure proper wrapping and spacing */
+.appointment-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .grid-cards {
+    gap: 12px;
+  }
+  .appointment-card {
+    padding: 12px;
+    gap: 8px;
+  }
+  .glass-panel {
+    padding: 12px;
+  }
 }
 
 .call-controls button {

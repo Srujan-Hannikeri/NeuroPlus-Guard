@@ -51,12 +51,11 @@ const DoctorDashboard = () => {
     if (feeAmount === '' || isNaN(feeAmount) || Number(feeAmount) < 0) return alert('Please enter a valid consultation fee amount (0 for free).');
 
     try {
-      // If the appointment is still pending, we need to accept it with a scheduled time.
-      // If it's already accepted, we just update the scheduledAt field.
-      const payload = selectedAppointment?.status === 'Pending'
-        ? { status: 'Accepted', scheduledAt: scheduleDate }
-        : { scheduledAt: scheduleDate };
-
+      // Payload always includes scheduledAt; include status only when accepting a pending appointment
+      const payload = { scheduledAt: scheduleDate };
+      if (selectedAppointment?.status === 'Pending') {
+        payload.status = 'Accepted';
+      }
       await api.put(`/appointments/${selectedAppointment._id}/status`, payload);
 
       // Update the fee amount regardless of status change.
@@ -146,9 +145,9 @@ const DoctorDashboard = () => {
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
               {appointments.map((appt) => (
-                <div key={appt._id} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div key={appt._id} className="appointment-card glass-panel">
                   <div>
-                    <h4 style={{ color: 'var(--secondary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ color: 'var(--secondary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       {appt.patient?.profilePic ? (
                         <img src={appt.patient.profilePic} alt="Patient" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
@@ -156,30 +155,30 @@ const DoctorDashboard = () => {
                           <User size={16} />
                         </div>
                       )}
-                      {appt.patient?.name || 'Unknown'}{appt.isEmergency && <span style={{ marginLeft: '8px', background: 'var(--error)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem' }}>EMERGENCY</span>}
-                      — {new Date(appt.scheduledAt || appt.createdAt).toLocaleDateString()} <span style={{ color: '#555', fontSize: '0.85rem' }}>{new Date(appt.scheduledAt || appt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {appt.patient?.name || 'Unknown'}{appt.isEmergency && (
+                        <span style={{ marginLeft: '8px', background: 'var(--error)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem' }}>EMERGENCY</span>
+                      )}
                     </h4>
-                    <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#555' }}>
-                      {new Date(appt.scheduledAt || appt.createdAt).toLocaleString()}
+                    <p className="appointment-time" style={{ marginTop: '4px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      — {new Date(appt.scheduledAt || appt.createdAt).toLocaleString()}
                     </p>
-                    <p style={{ fontSize: '0.85rem', color: appt.status === 'Pending' ? 'var(--error)' : 'var(--primary)', fontWeight: 'bold' }}>Status: {appt.status}</p>
-                    {/* Date at bottom‑right */}
-                    <p style={{ fontSize: '0.75rem', color: '#555', textAlign: 'right', marginTop: '4px' }}>
-                      {new Date(appt.scheduledAt || appt.createdAt).toLocaleString()}
+                    <p style={{ fontSize: '0.85rem', color: appt.status === 'Pending' ? 'var(--error)' : 'var(--primary)', fontWeight: 'bold' }}>
+                      Status: {appt.status}
                     </p>
                     {appt.notes && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px' }}>"{appt.notes}"</p>}
+
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="appointment-actions">
                     {appt.status === 'Pending' && (
                       <>
                         <button 
-                          onClick={() => openScheduleModal(appt)}
+                          onClick={() => openScheduleModal(appt)} 
                           className="btn-primary" 
                           style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#10b981' }}>
-                          Schedule
+                          Reschedule
                         </button>
                         <button 
-                          onClick={() => handleRejectAppointment(appt._id)}
+                          onClick={() => handleRejectAppointment(appt._id)} 
                           className="btn-primary" 
                           style={{ padding: '8px 16px', fontSize: '0.9rem', background: 'var(--error)' }}>
                           Reject
@@ -233,8 +232,8 @@ const DoctorDashboard = () => {
               className="input-field" 
               value={scheduleDate}
               onChange={(e) => setScheduleDate(e.target.value)}
-              min={new Date().toISOString().slice(0, 16)}
-              max={selectedAppointment?.isEmergency ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16) : undefined}
+              min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16)}
+              max={selectedAppointment?.isEmergency ? new Date(Date.now() - new Date().getTimezoneOffset() * 60000 + 24 * 60 * 60 * 1000).toISOString().slice(0,16) : undefined}
               style={{ width: '100%', marginBottom: '16px', boxSizing: 'border-box' }}
             />
             

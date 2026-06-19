@@ -91,16 +91,25 @@ exports.updateAppointmentStatus = async (req, res) => {
     const appointment = await Appointment.findOne({ _id: id, doctor: req.user._id });
     if (!appointment) return res.status(404).json({ message: 'Appointment not found or unauthorized' });
 
-      // If a new scheduledAt is provided, update it regardless of status change
-      if (scheduledAt) {
-        appointment.scheduledAt = new Date(scheduledAt);
-      }
+    // Convert scheduledAt string (from datetime-local) to a Date preserving the local time
+    // datetime-local returns a value like "2026-06-19T20:00" which is interpreted as UTC by new Date().
+    // To keep the time as entered by the user (local), we offset it by the client’s timezone offset.
+    if (scheduledAt) {
+      const utcDate = new Date(scheduledAt);
+      const localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
+      appointment.scheduledAt = localDate;
+    }
 
-      // When accepting a pending appointment, ensure a scheduled date is provided
-      if (status === 'Accepted' && !appointment.scheduledAt) {
-        return res.status(400).json({ message: 'A scheduled date and time is required to accept an appointment.' });
-      }
-    appointment.status = status;
+
+    // When accepting a pending appointment, ensure a scheduled date is provided
+    if (status === 'Accepted' && !appointment.scheduledAt) {
+      return res.status(400).json({ message: 'A scheduled date and time is required to accept an appointment.' });
+    }
+
+    // Only update status if the client sent a new status value
+    if (typeof status !== 'undefined') {
+      appointment.status = status;
+    }
     if (meetingLink) appointment.meetingLink = meetingLink;
     await appointment.save();
 
