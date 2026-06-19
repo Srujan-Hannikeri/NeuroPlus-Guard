@@ -92,6 +92,19 @@ const DoctorDashboard = () => {
     }
   };
 
+  const handleCompleteAppointment = async (id) => {
+    try {
+      await api.put(`/appointments/${id}/status`, { status: 'Completed' });
+      // Refresh appointments
+      const appointmentsRes = await api.get('/appointments');
+      setAppointments(appointmentsRes.data);
+      alert('Appointment marked as Consulted (Completed).');
+    } catch (error) {
+      alert('Failed to complete appointment');
+      console.error(error);
+    }
+  };
+
 
 
   return (
@@ -174,11 +187,19 @@ const DoctorDashboard = () => {
                         </button>
                       </>
                     )}
+                     {appt.status === 'Accepted' && (
+                       <button 
+                        onClick={() => handleCompleteAppointment(appt._id)}
+                        className="btn-primary" 
+                        style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#10b981' }}>
+                        Complete Consultation
+                       </button>
+                     )}
                      <button 
                       onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: appt._id } })}
                       className="btn-primary" 
-                      disabled={appt.status === 'Pending'}
-                      style={{ padding: '8px 16px', fontSize: '0.9rem', opacity: appt.status === 'Pending' ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--primary)' }}>
+                      disabled={appt.status === 'Pending' || appt.status === 'Completed'}
+                      style={{ padding: '8px 16px', fontSize: '0.9rem', opacity: (appt.status === 'Pending' || appt.status === 'Completed') ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--primary)' }}>
                       <MessageSquare size={14} /> Start Call & Chat
                     </button>
                   </div>

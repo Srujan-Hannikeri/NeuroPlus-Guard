@@ -54,9 +54,18 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [incomingCall, setIncomingCall] = useState(null);
+  const [upcomingAppointment, setUpcomingAppointment] = useState(null);
 
   const isConsultation = location.pathname === '/consultation';
   const isChatting = isConsultation && searchParams.get('contactId');
+
+  useEffect(() => {
+    if (user && user.role === 'Patient' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -74,7 +83,10 @@ const Layout = ({ children }) => {
         if (!isMounted) return;
         
         const apptList = Array.isArray(appointments) ? appointments : [];
-        if (apptList.length === 0) return;
+        if (apptList.length === 0) {
+          setUpcomingAppointment(null);
+          return;
+        }
         
         const roomIds = apptList.map(appt => `room-${appt._id}`);
         const { data: rooms } = await api.post('/communication/summary', { roomIds });
@@ -99,6 +111,39 @@ const Layout = ({ children }) => {
           playIncomingCallBeepGlobal.start();
         } else {
           playIncomingCallBeepGlobal.stop();
+        }
+
+        // Check for upcoming accepted patient appointments in the next 15 mins (or started in last 1 hour)
+        if (user.role === 'Patient') {
+          const now = Date.now();
+          const upcoming = apptList.find(appt => {
+            if (appt.status !== 'Accepted' || !appt.scheduledAt) return false;
+            const scheduledTime = new Date(appt.scheduledAt).getTime();
+            return (scheduledTime - now <= 15 * 60 * 1000) && (now - scheduledTime <= 60 * 60 * 1000);
+          });
+          
+          setUpcomingAppointment(upcoming || null);
+          
+          if (upcoming) {
+            const notifiedKey = `notified-appt-${upcoming._id}`;
+            if (!localStorage.getItem(notifiedKey)) {
+              localStorage.setItem(notifiedKey, 'true');
+              
+              if (Notification.permission === 'granted') {
+                new Notification("Upcoming Appointment Reminder", {
+                  body: `Your appointment with Dr. ${upcoming.doctor?.name || 'Doctor'} is scheduled for ${new Date(upcoming.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+                });
+              } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                  if (permission === 'granted') {
+                    new Notification("Upcoming Appointment Reminder", {
+                      body: `Your appointment with Dr. ${upcoming.doctor?.name || 'Doctor'} is scheduled for ${new Date(upcoming.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+                    });
+                  }
+                });
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Error polling incoming calls in layout:", err);
@@ -231,6 +276,91 @@ const Layout = ({ children }) => {
             >
               Decline
             </button>
+          </div>
+        </div>
+      )}
+
+      {upcomingAppointment && !isConsultation && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '90%',
+          maxWidth: '450px',
+          background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
+          border: '1.5px solid var(--glass-border)',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3)',
+          borderRadius: '16px',
+          padding: '16px',
+          zIndex: 99998,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          color: '#fff',
+          animation: 'slideDownGlobal 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              color: '#fff'
+            }}>
+              🔔
+            </div>
+            <div>
+              <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 'bold', letterSpacing: '0.3px' }}>
+                Upcoming Appointment
+              </h5>
+              <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                With Dr. {upcomingAppointment.doctor?.name || 'Doctor'} at {new Date(upcomingAppointment.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            {upcomingAppointment.feeAmount > 0 && upcomingAppointment.feeStatus !== 'Paid' ? (
+              <button 
+                onClick={() => navigate('/fees')}
+                style={{
+                  background: '#f59e0b',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '8px 14px',
+                  borderRadius: '24px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                }}
+              >
+                Pay Fee
+              </button>
+            ) : (
+              <button 
+                onClick={() => navigate('/consultation', { state: { autoSelectAppointmentId: upcomingAppointment._id } })}
+                style={{
+                  background: '#10b981',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '8px 14px',
+                  borderRadius: '24px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                Join Call
+              </button>
+            )}
           </div>
         </div>
       )}

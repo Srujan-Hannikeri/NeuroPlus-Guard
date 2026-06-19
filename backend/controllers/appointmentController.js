@@ -120,15 +120,45 @@ exports.getAppointments = async (req, res) => {
     const isDoctor = req.user.role === 'Doctor';
     const query = isDoctor ? { doctor: req.user._id } : { patient: req.user._id };
     
-    // Sort by updatedAt descending
     let appointments = await Appointment.find(query)
       .populate('patient', 'name profilePic')
-      .populate('doctor', 'name specialization upiQrCode upiId profilePic')
-      .sort({ updatedAt: -1 });
+      .populate('doctor', 'name specialization upiQrCode upiId profilePic');
     
     if (!isDoctor) {
       appointments = appointments.filter(appt => appt.doctor && appt.doctor._id);
     }
+
+    // Sort logically by urgency, status, and dates
+    const getGroupValue = (appt) => {
+      if (appt.isEmergency && appt.status !== 'Completed' && appt.status !== 'Rejected') return 1;
+      if (appt.status === 'Pending') return 2;
+      if (appt.status === 'Accepted') return 3;
+      if (appt.status === 'Completed') return 4;
+      return 5; // Rejected
+    };
+
+    appointments.sort((a, b) => {
+      const groupA = getGroupValue(a);
+      const groupB = getGroupValue(b);
+      
+      if (groupA !== groupB) {
+        return groupA - groupB;
+      }
+      
+      if (groupA === 1 || groupA === 2) {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      
+      if (groupA === 3) {
+        return new Date(a.scheduledAt) - new Date(b.scheduledAt);
+      }
+      
+      if (groupA === 4) {
+        return new Date(b.scheduledAt) - new Date(a.scheduledAt);
+      }
+      
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
 
     res.json(appointments);
   } catch (error) {
@@ -170,16 +200,18 @@ exports.payAppointmentFee = async (req, res) => {
     const { id } = req.params;
     const { amount, feeId, paymentMethod, paymentDetails } = req.body;
     
-    if (paymentMethod) {
-      const gateResult = await verifyPaymentWithGateway({
-        amount,
-        method: paymentMethod,
-        details: paymentDetails
-      });
-      
-      if (!gateResult.success) {
-        return res.status(400).json({ message: gateResult.message });
-      }
+    if (!paymentMethod || !paymentDetails) {
+      return res.status(400).json({ message: 'Payment method and transaction details are required.' });
+    }
+    
+    const gateResult = await verifyPaymentWithGateway({
+      amount,
+      method: paymentMethod,
+      details: paymentDetails
+    });
+    
+    if (!gateResult.success) {
+      return res.status(400).json({ message: gateResult.message });
     }
     
     // Patient marks fee as paid

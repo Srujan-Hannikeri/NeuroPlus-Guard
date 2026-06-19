@@ -19,6 +19,13 @@ const PatientDashboard = () => {
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'upi', 'netbanking'
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [selectedBank, setSelectedBank] = useState('');
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -104,15 +111,47 @@ const PatientDashboard = () => {
     setPaymentApptId(appt._id);
     setPaymentAmount(appt.feeAmount);
     setPaymentSuccess(false);
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCvv('');
+    setCardName('');
+    setUpiId(appt.doctor?.upiId || '');
+    setSelectedBank('');
     setPaymentModalOpen(true);
   };
 
   const processPayment = async () => {
+    let details = {};
+    if (paymentMethod === 'card') {
+      if (!cardNumber || !cardExpiry || !cardCvv || !cardName) {
+        return alert('Please fill in all card details');
+      }
+      if (cardNumber.replace(/\s/g, '').length < 16) {
+        return alert('Please enter a valid 16-digit card number');
+      }
+      details = { cardNumber, cardExpiry, cvv: cardCvv, cardName };
+    } else if (paymentMethod === 'upi') {
+      if (!upiId) {
+        return alert('Please enter a valid UPI ID');
+      }
+      if (!upiId.includes('@')) {
+        return alert('UPI ID must contain the @ symbol');
+      }
+      details = { upiId };
+    } else if (paymentMethod === 'netbanking') {
+      if (!selectedBank) {
+        return alert('Please select your bank');
+      }
+      details = { bank: selectedBank };
+    }
+
     setIsProcessing(true);
     try {
-      // Simulate secure modern payment gateway processing delay
-      await new Promise(r => setTimeout(r, 2000));
-      await api.put(`/appointments/${paymentApptId}/pay`, { amount: paymentAmount });
+      await api.put(`/appointments/${paymentApptId}/pay`, { 
+        amount: paymentAmount,
+        paymentMethod: paymentMethod,
+        paymentDetails: details
+      });
       setPaymentSuccess(true);
       
       const { data } = await api.get('/appointments');
@@ -123,7 +162,8 @@ const PatientDashboard = () => {
         setIsProcessing(false);
       }, 1500);
     } catch (error) {
-      alert("Payment processing failed");
+      const errMsg = error.response?.data?.message || 'Payment processing failed';
+      alert(errMsg);
       setIsProcessing(false);
     }
   };
@@ -280,6 +320,8 @@ const PatientDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Payment Modal */}
       {paymentModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
           <div className="glass-panel" style={{ width: '90%', maxWidth: '400px', padding: '32px', borderRadius: '16px', background: 'rgba(255, 255, 255, 0.95)', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
@@ -305,19 +347,124 @@ const PatientDashboard = () => {
               </div>
             ) : (
               <>
+                {/* Payment Method Selector Tab */}
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--glass-border)', paddingBottom: '2px', gap: '8px', marginBottom: '16px' }}>
+                  {['card', 'upi', 'netbanking'].map(method => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setPaymentMethod(method)}
+                      style={{
+                        flex: 1,
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: paymentMethod === method ? '2px solid var(--primary)' : '2px solid transparent',
+                        color: paymentMethod === method ? 'var(--primary)' : 'var(--text-muted)',
+                        fontWeight: 'bold',
+                        padding: '8px 0',
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize'
+                      }}
+                    >
+                      {method === 'upi' ? 'UPI' : method === 'netbanking' ? 'Net Banking' : 'Card'}
+                    </button>
+                  ))}
+                </div>
+
                 <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Card Number</label>
-                  <input type="text" placeholder="•••• •••• •••• ••••" className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: '#fff' }} />
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Expiry</label>
-                      <input type="text" placeholder="MM/YY" className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: '#fff' }} />
+                  {paymentMethod === 'card' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cardholder Name</label>
+                        <input 
+                          type="text" 
+                          placeholder="John Doe" 
+                          className="input-field" 
+                          value={cardName} 
+                          onChange={(e) => setCardName(e.target.value)}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Card Number</label>
+                        <input 
+                          type="text" 
+                          placeholder="•••• •••• •••• ••••" 
+                          maxLength="19"
+                          className="input-field" 
+                          value={cardNumber} 
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
+                            setCardNumber(val);
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Expiry</label>
+                          <input 
+                            type="text" 
+                            placeholder="MM/YY" 
+                            maxLength="5"
+                            className="input-field" 
+                            value={cardExpiry} 
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/\D/g, '');
+                              if (val.length > 2) val = val.substring(0,2) + '/' + val.substring(2,4);
+                              setCardExpiry(val);
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>CVV</label>
+                          <input 
+                            type="password" 
+                            placeholder="•••" 
+                            maxLength="3"
+                            className="input-field" 
+                            value={cardCvv} 
+                            onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>CVV</label>
-                      <input type="password" placeholder="•••" className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: '#fff' }} />
+                  )}
+
+                  {paymentMethod === 'upi' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Enter UPI ID</label>
+                        <input 
+                          type="text" 
+                          placeholder="username@bank" 
+                          className="input-field" 
+                          value={upiId} 
+                          onChange={(e) => setUpiId(e.target.value)}
+                        />
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        You will receive a collect request on your GPay/PhonePe/Paytm app.
+                      </p>
                     </div>
-                  </div>
+                  )}
+
+                  {paymentMethod === 'netbanking' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Select Bank</label>
+                      <select 
+                        className="input-field" 
+                        value={selectedBank} 
+                        onChange={(e) => setSelectedBank(e.target.value)}
+                      >
+                        <option value="">Choose Bank</option>
+                        <option value="SBI">State Bank of India</option>
+                        <option value="HDFC">HDFC Bank</option>
+                        <option value="ICICI">ICICI Bank</option>
+                        <option value="AXIS">Axis Bank</option>
+                        <option value="KOTAK">Kotak Mahindra Bank</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '12px' }}>

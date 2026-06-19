@@ -30,8 +30,8 @@ exports.getReports = async (req, res) => {
     let query = {};
     
     if (isDoctor) {
-      // Find all unique patients who have booked an appointment with this doctor
-      const appointments = await Appointment.find({ doctor: req.user._id });
+      // Find all unique patients who have completed an appointment with this doctor
+      const appointments = await Appointment.find({ doctor: req.user._id, status: 'Completed' });
       const patientIds = [...new Set(appointments.map(a => a.patient.toString()))];
       
       // If the report explicitly has this doctor, or belongs to a connected patient

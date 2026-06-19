@@ -7,6 +7,7 @@ router.post('/request', protect, requestAppointment);
 router.put('/:id/status', protect, updateAppointmentStatus);
 router.put('/:id/fee', protect, updateAppointmentFee);
 router.put('/:id/pay', protect, payAppointmentFee);
+router.get('/me', protect, getAppointments);
 router.get('/', protect, getAppointments);
 
 module.exports = router;

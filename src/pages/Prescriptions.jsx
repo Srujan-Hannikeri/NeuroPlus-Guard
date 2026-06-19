@@ -42,7 +42,7 @@ const Prescriptions = () => {
       const uniquePatients = [];
       const seen = new Set();
       data.forEach(appt => {
-        if (appt.patient && !seen.has(appt.patient._id)) {
+        if (appt.patient && appt.status === 'Completed' && !seen.has(appt.patient._id)) {
           seen.add(appt.patient._id);
           uniquePatients.push(appt.patient);
         }

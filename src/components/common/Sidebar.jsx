@@ -178,7 +178,7 @@ const Sidebar = () => {
               <div style={{ position: 'relative', display: 'inline-flex' }}>
                 {item.icon}
                 {count > 0 && (
-                  <span style={{
+                  <span className="sidebar-icon-badge" style={{
                     position: 'absolute',
                     top: '-6px',
                     right: '-6px',

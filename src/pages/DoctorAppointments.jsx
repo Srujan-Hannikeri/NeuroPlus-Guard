@@ -72,6 +72,18 @@ const DoctorAppointments = () => {
     }
   };
 
+  const handleComplete = async (id) => {
+    try {
+      await api.put(`/appointments/${id}/status`, { status: 'Completed' });
+      alert('Consultation Completed');
+      const { data } = await api.get('/appointments');
+      setAppointments(data);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to complete');
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <nav className="nav-bar">
@@ -97,12 +109,15 @@ const DoctorAppointments = () => {
                       <h4>{appt.patient?.name || 'Unknown'} {appt.isEmergency && <span style={{ background: 'var(--error)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem' }}>EMERGENCY</span>}</h4>
                       <p>{appt.notes}</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       {appt.status === 'Pending' && (
                         <>
                           <button onClick={() => openScheduleModal(appt)} className="btn-primary" style={{ background: '#10b981' }}>Schedule</button>
                           <button onClick={() => handleReject(appt._id)} className="btn-primary" style={{ background: 'var(--error)' }}>Reject</button>
                         </>
+                      )}
+                      {appt.status === 'Accepted' && (
+                        <button onClick={() => handleComplete(appt._id)} className="btn-primary" style={{ background: '#10b981' }}>Complete Consultation</button>
                       )}
                       {appt.status !== 'Pending' && (
                         <span style={{ background: '#e5e7eb', color: '#111', padding: '2px 8px', borderRadius: '4px' }}>{appt.status}</span>

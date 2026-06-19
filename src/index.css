@@ -986,3 +986,14 @@ body {
   transform: translateY(0) scale(1) !important;
 }
 
+/* Sidebar badge styling: hide on desktop, show on mobile */
+.sidebar-icon-badge {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .sidebar-icon-badge {
+    display: flex !important;
+  }
+}
+
