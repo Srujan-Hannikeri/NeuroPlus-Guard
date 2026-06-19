@@ -21,6 +21,7 @@ const Prescriptions = () => {
     if (user?.role === 'Doctor') {
       fetchPatients();
     }
+    localStorage.setItem('lastViewedPrescriptions', new Date().toISOString());
   }, [user]);
 
   const fetchPrescriptions = async () => {

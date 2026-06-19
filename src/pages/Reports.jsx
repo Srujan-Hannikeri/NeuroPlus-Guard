@@ -15,6 +15,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    localStorage.setItem('lastViewedReports', new Date().toISOString());
   }, []);
 
   const fetchReports = async () => {

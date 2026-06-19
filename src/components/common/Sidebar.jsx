@@ -1,13 +1,127 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import Logo from './Logo';
-import { Home, FileText, MessageSquare, LogOut, Video, ChevronUp, ChevronDown, User, Pill, IndianRupee, Code } from 'lucide-react';
+import api from '../../services/api';
+import { Home, FileText, MessageSquare, LogOut, Video, ChevronUp, ChevronDown, User, Pill, IndianRupee, Code, Calendar } from 'lucide-react';
 
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [appointments, setAppointments] = useState([]);
+
+  const [badges, setBadges] = useState({
+    consultation: 0,
+    prescriptions: 0,
+    reports: 0,
+    fees: 0,
+    appointments: 0
+  });
+
+  useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+
+    const fetchBadges = async () => {
+      try {
+        // 1. Fetch appointments (for consultations and fees)
+        const appointmentsRes = await api.get('/appointments');
+        const apptList = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
+        if (!isMounted) return;
+        setAppointments(apptList);
+        // fetch badge count for appointments (unread or pending)
+        const unseenCount = apptList.filter(a => a.status === 'Pending').length;
+        setBadges(prev => ({ ...prev, appointments: unseenCount }));
+
+        // 2. Fetch room summaries
+        let unreadChatCount = 0;
+        if (apptList.length > 0) {
+          const roomIds = apptList.map(appt => `room-${appt._id}`);
+          try {
+            const { data: rooms } = await api.post('/communication/summary', { roomIds });
+            rooms.forEach(room => {
+              unreadChatCount += room.messages?.filter(msg => msg.senderId !== user._id && !msg.seen).length || 0;
+              if (room.offer && !room.answer && room.offer.senderId !== user._id) {
+                unreadChatCount += 1;
+              }
+            });
+          } catch (e) {
+            console.error("Sidebar summary polling error", e);
+          }
+        }
+
+        // 3. Fetch prescriptions
+        let newPrescCount = 0;
+        try {
+          const { data: prescriptions } = await api.get('/prescriptions');
+          const lastViewedPresc = localStorage.getItem('lastViewedPrescriptions') || 0;
+          newPrescCount = prescriptions.filter(p => new Date(p.createdAt).getTime() > new Date(lastViewedPresc).getTime()).length;
+        } catch (e) {
+          console.error("Sidebar prescriptions polling error", e);
+        }
+
+        // 4. Fetch reports
+        let newRepsCount = 0;
+        try {
+          const { data: reports } = await api.get('/reports');
+          const lastViewedReps = localStorage.getItem('lastViewedReports') || 0;
+          newRepsCount = reports.filter(r => new Date(r.createdAt).getTime() > new Date(lastViewedReps).getTime()).length;
+        } catch (e) {
+          console.error("Sidebar reports polling error", e);
+        }
+
+        // 5. Calculate unpaid fees
+        let unpaidFeesCount = 0;
+        apptList.forEach(appt => {
+          if (appt.feeHistory && appt.feeHistory.length > 0) {
+            unpaidFeesCount += appt.feeHistory.filter(f => f.status !== 'Paid').length;
+          } else if (appt.feeAmount > 0 && appt.feeStatus !== 'Paid') {
+            unpaidFeesCount += 1;
+          }
+        });
+
+        if (isMounted) {
+          setBadges({
+            consultation: unreadChatCount,
+            prescriptions: newPrescCount,
+            reports: newRepsCount,
+            fees: unpaidFeesCount
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching badges in sidebar:", err);
+      }
+    };
+
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user]);
+
+  const getBadgeCount = (name) => {
+    if (name.includes('Consultation') || name.includes('Video') || name === 'Video Call' || name === 'Consultations') {
+      return badges.consultation;
+    }
+    if (name.includes('Prescription')) {
+      return badges.prescriptions;
+    }
+    if (name.includes('Report')) {
+      return badges.reports;
+    }
+    if (name.includes('Fee')) {
+      return badges.fees;
+    }
+    if (name.includes('Appointment')) {
+      return badges.appointments || 0; // new badge count
+    }
+    return 0;
+  };
 
   const formatDoctorName = (name, role) => {
     if (!name) return '';
@@ -29,6 +143,7 @@ const Sidebar = () => {
     { name: 'Consultations', path: '/consultation', icon: <Video size={20} /> },
     { name: 'Prescriptions', path: '/prescriptions', icon: <Pill size={20} /> },
     { name: 'Fees', path: '/fees', icon: <IndianRupee size={20} /> },
+    { name: 'Appointments', path: '/doctor-appointments', icon: <Calendar size={20} /> },
     { name: 'Profile', path: '/profile', icon: <User size={20} /> },
   ] : [
     { name: 'Dashboard', path: '/patient-dashboard', icon: <Home size={20} /> },
@@ -37,6 +152,7 @@ const Sidebar = () => {
     { name: 'Video Call', path: '/consultation', icon: <Video size={20} /> },
     { name: 'My Prescriptions', path: '/prescriptions', icon: <Pill size={20} /> },
     { name: 'Consultation Fees', path: '/fees', icon: <IndianRupee size={20} /> },
+    { name: 'Appointments', path: '/patient-appointments', icon: <Calendar size={20} /> },
     { name: 'Profile', path: '/profile', icon: <User size={20} /> },
   ];
 
@@ -51,16 +167,60 @@ const Sidebar = () => {
       </div>
 
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {navItems.map((item) => (
-          <NavLink 
-            key={item.name} 
-            to={item.path} 
-            className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
-          >
-            {item.icon}
-            <span className="sidebar-text">{item.name}</span>
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const count = getBadgeCount(item.name);
+          return (
+            <NavLink 
+              key={item.name} 
+              to={item.path} 
+              className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+            >
+              <div style={{ position: 'relative', display: 'inline-flex' }}>
+                {item.icon}
+                {count > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    background: '#ef4444',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    minWidth: '15px',
+                    height: '15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.62rem',
+                    fontWeight: 'bold',
+                    padding: '2px',
+                    boxShadow: '0 0 0 2px #fff',
+                    boxSizing: 'border-box',
+                    zIndex: 2
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </div>
+              <span className="sidebar-text" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginLeft: '12px' }}>
+                {item.name}
+                {count > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    padding: '1px 6px',
+                    fontSize: '0.68rem',
+                    fontWeight: 'bold',
+                    marginLeft: '8px',
+                    display: 'inline-block'
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </span>
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div style={{ position: 'relative', marginTop: 'auto' }}>
