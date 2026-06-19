@@ -119,6 +119,24 @@ exports.updateAppointmentStatus = async (req, res) => {
   }
 };
 
+// New helper for explicit rescheduling (doctor only)
+exports.rescheduleAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { scheduledAt } = req.body;
+    const appointment = await Appointment.findOne({ _id: id, doctor: req.user._id });
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found or unauthorized' });
+    if (!scheduledAt) return res.status(400).json({ message: 'scheduledAt is required for rescheduling.' });
+    const utcDate = new Date(scheduledAt);
+    const localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
+    appointment.scheduledAt = localDate;
+    await appointment.save();
+    res.json(appointment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.getAppointments = async (req, res) => {
   try {
     const isDoctor = req.user.role === 'Doctor';
