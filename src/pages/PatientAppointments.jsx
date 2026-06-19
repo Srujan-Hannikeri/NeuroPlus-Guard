@@ -124,7 +124,7 @@ const PatientAppointments = () => {
               {appointments.map(appt => (
                 <div key={appt._id} className="glass-panel" style={{ padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <h4 style={{ margin: 0 }}>{appt.doctor?.name || 'Doctor'} – {new Date(appt.scheduledAt).toLocaleString()}</h4>
+                    <h4 style={{ margin: 0 }}>{appt.doctor?.name || 'Doctor'} – {new Date(appt.scheduledAt).toLocaleDateString()} <span style={{ color: '#555', fontSize: '0.85rem' }}>{new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></h4>
                     <p style={{ margin: '4px 0' }}>{appt.notes}</p>
                     <span style={{ fontSize: '0.85rem', color: '#555' }}>Status: {appt.status}</span>
                   </div>
@@ -255,22 +255,34 @@ const PatientAppointments = () => {
                   )}
 
                   {paymentMethod === 'upi' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Enter UPI ID</label>
-                        <input 
-                          type="text" 
-                          placeholder="username@bank" 
-                          className="input-field" 
-                          value={upiId} 
-                          onChange={(e) => setUpiId(e.target.value)}
-                        />
-                      </div>
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        You will receive a collect request on your GPay/PhonePe/Paytm app.
-                      </p>
-                    </div>
-                  )}
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+      <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Enter UPI ID</label>
+      <input 
+        type="text" 
+        placeholder="username@bank" 
+        className="input-field" 
+        value={upiId} 
+        onChange={(e) => setUpiId(e.target.value)}
+      />
+    </div>
+    {upiId && (
+      <img
+        src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(upiId)}&size=150x150`}
+        alt="UPI QR"
+        style={{ marginTop: '12px', borderRadius: '8px' }}
+      />
+    )}
+    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+      You will receive a collect request on your GPay/PhonePe/Paytm app.
+    </p>
+    {upiId && (
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+        UPI ID: <span style={{ fontWeight: 'bold' }}>{upiId}</span>
+      </p>
+    )}
+  </div>
+)}
 
                   {paymentMethod === 'netbanking' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
