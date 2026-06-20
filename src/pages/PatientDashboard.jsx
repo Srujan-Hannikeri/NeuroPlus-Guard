@@ -431,8 +431,8 @@ const PatientDashboard = () => {
                   )}
 
                   {paymentMethod === 'upi' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
                         <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Enter UPI ID</label>
                         <input 
                           type="text" 
@@ -442,9 +442,21 @@ const PatientDashboard = () => {
                           onChange={(e) => setUpiId(e.target.value)}
                         />
                       </div>
+                      {upiId && (
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(upiId)}&size=150x150`}
+                          alt="UPI QR"
+                          style={{ marginTop: '12px', borderRadius: '8px' }}
+                        />
+                      )}
                       <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                         You will receive a collect request on your GPay/PhonePe/Paytm app.
                       </p>
+                      {upiId && (
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          UPI ID: <span style={{ fontWeight: 'bold' }}>{upiId}</span>
+                        </p>
+                      )}
                     </div>
                   )}
 

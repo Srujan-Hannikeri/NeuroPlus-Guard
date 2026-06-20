@@ -51,12 +51,11 @@ const DoctorDashboard = () => {
     if (feeAmount === '' || isNaN(feeAmount) || Number(feeAmount) < 0) return alert('Please enter a valid consultation fee amount (0 for free).');
 
     try {
-      // Payload always includes scheduledAt; include status only when accepting a pending appointment
-      const payload = { scheduledAt: scheduleDate };
       if (selectedAppointment?.status === 'Pending') {
-        payload.status = 'Accepted';
+        await api.put(`/appointments/${selectedAppointment._id}/status`, { scheduledAt: scheduleDate, status: 'Accepted' });
+      } else {
+        await api.put(`/appointments/${selectedAppointment._id}/reschedule`, { scheduledAt: scheduleDate });
       }
-      await api.put(`/appointments/${selectedAppointment._id}/status`, payload);
 
       // Update the fee amount regardless of status change.
       await api.put(`/appointments/${selectedAppointment._id}/fee`, { feeAmount: Number(feeAmount) });

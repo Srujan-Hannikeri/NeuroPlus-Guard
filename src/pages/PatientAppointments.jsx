@@ -78,7 +78,8 @@ const PatientAppointments = () => {
       alert(e.response?.data?.message || 'Failed to request appointment');
     }
   };
- {
+
+  const openPaymentModal = (appt) => {
     setPaymentApptId(appt._id);
     setPaymentAmount(appt.feeAmount);
     setPaymentSuccess(false);
