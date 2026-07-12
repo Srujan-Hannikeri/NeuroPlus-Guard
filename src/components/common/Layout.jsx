@@ -160,6 +160,67 @@ const Layout = ({ children }) => {
     };
   }, [user, location.pathname]);
 
+  // Prescription Dosage Notifications
+  useEffect(() => {
+    if (!user || user.role !== 'Patient') return;
+    
+    let isMounted = true;
+    const checkPrescriptions = async () => {
+      try {
+        const { data: prescriptions } = await api.get('/prescriptions');
+        if (!isMounted) return;
+        
+        const now = new Date();
+        const hours = now.getHours();
+        
+        // Define time windows
+        const isMorning = hours >= 8 && hours < 10; // 8:00 AM - 9:59 AM
+        const isAfternoon = hours >= 14 && hours < 16; // 2:00 PM - 3:59 PM
+        const isNight = hours >= 21 && hours < 23; // 9:00 PM - 10:59 PM
+        
+        if (!isMorning && !isAfternoon && !isNight) return;
+        
+        const currentWindow = isMorning ? 'Morning (8am - 10am)' : isAfternoon ? 'Afternoon (2pm - 4pm)' : 'Night (9pm - 11pm)';
+        const dosageKey = isMorning ? 'morning' : isAfternoon ? 'afternoon' : 'night';
+        const notifiedKeyDate = now.toLocaleDateString();
+        
+        prescriptions.forEach(prescription => {
+          prescription.medications.forEach(med => {
+            if (med.dosage && med.dosage[dosageKey]) {
+              const notifKey = `med-notif-${prescription._id}-${med._id}-${dosageKey}-${notifiedKeyDate}`;
+              
+              if (!localStorage.getItem(notifKey)) {
+                localStorage.setItem(notifKey, 'true');
+                const title = `Medication Reminder: ${currentWindow}`;
+                const body = `It's time to take your medication: ${med.medicineName}`;
+                
+                if (Notification.permission === 'granted') {
+                  new Notification(title, { body });
+                } else if (Notification.permission !== 'denied') {
+                  Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                      new Notification(title, { body });
+                    }
+                  });
+                }
+              }
+            }
+          });
+        });
+      } catch (err) {
+        console.error("Error checking prescription notifications:", err);
+      }
+    };
+    
+    checkPrescriptions();
+    const interval = setInterval(checkPrescriptions, 60000); // Check every minute
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user]);
+
   const handleAnswer = (call) => {
     playIncomingCallBeepGlobal.stop();
     setIncomingCall(null);

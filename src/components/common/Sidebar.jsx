@@ -32,7 +32,8 @@ const Sidebar = () => {
         if (!isMounted) return;
         setAppointments(apptList);
         // fetch badge count for appointments (unread or pending)
-        const unseenCount = apptList.filter(a => a.status === 'Pending').length;
+        const lastViewedAppts = localStorage.getItem('lastViewedAppointments') || 0;
+        const unseenCount = apptList.filter(a => new Date(a.updatedAt || a.createdAt).getTime() > new Date(lastViewedAppts).getTime()).length;
         setBadges(prev => ({ ...prev, appointments: unseenCount }));
 
         // 2. Fetch room summaries
@@ -204,18 +205,26 @@ const Sidebar = () => {
               <span className="sidebar-text" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginLeft: '12px' }}>
                 {item.name}
                 {count > 0 && (
-                  <span style={{
-                    background: '#ef4444',
-                    color: '#fff',
-                    borderRadius: '10px',
-                    padding: '1px 6px',
-                    fontSize: '0.68rem',
-                    fontWeight: 'bold',
-                    marginLeft: '8px',
-                    display: 'inline-block'
-                  }}>
-                    {count}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)'
+                    }}></span>
+                    <span style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      borderRadius: '10px',
+                      padding: '1px 6px',
+                      fontSize: '0.68rem',
+                      fontWeight: 'bold',
+                      display: 'inline-block'
+                    }}>
+                      {count}
+                    </span>
+                  </div>
                 )}
               </span>
             </NavLink>

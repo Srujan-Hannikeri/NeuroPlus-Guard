@@ -21,6 +21,8 @@ const Fees = () => {
   const [paymentAmounts, setPaymentAmounts] = useState({});
   const [activePaymentAppt, setActivePaymentAppt] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'upi', 'netbanking'
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentSuccessData, setPaymentSuccessData] = useState(null);
   const [cardNumber, setCardNumber] = useState('');
@@ -80,6 +82,8 @@ const Fees = () => {
     setUpiId(appt?.doctor?.upiId || '');
     setSelectedBank('');
     setPaymentSuccessData(null);
+    setOtpRequested(false);
+    setOtpValue('');
   };
 
   const submitGatewayPayment = async () => {
@@ -107,9 +111,23 @@ const Fees = () => {
       details = { bank: selectedBank };
     }
 
+    // Request OTP instead of immediate processing
+    setOtpRequested(true);
+  };
+
+  const verifyOTP = async () => {
+    if (otpValue.length < 4) return alert('Please enter a valid OTP');
     setIsProcessingPayment(true);
     
     try {
+      // Simulate bank delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      let details = {};
+      if (paymentMethod === 'card') details = { cardNumber, cardExpiry, cvv: cardCvv, cardName };
+      else if (paymentMethod === 'upi') details = { upiId };
+      else if (paymentMethod === 'netbanking') details = { bank: selectedBank };
+
       const { data } = await api.put(`/appointments/${activePaymentAppt.id}/pay`, { 
         amount: activePaymentAppt.amount,
         feeId: activePaymentAppt.feeId,
@@ -125,9 +143,17 @@ const Fees = () => {
       
       setPaymentAmounts(prev => ({ ...prev, [activePaymentAppt.feeId || activePaymentAppt.id]: '' }));
       fetchAppointments();
+      
+      // Auto-close after 3 seconds
+      setTimeout(() => {
+        setActivePaymentAppt(null);
+      }, 3000);
+      
     } catch (error) {
       const errMsg = error.response?.data?.message || 'Payment processing failed. Please check your credentials and try again.';
       alert(errMsg);
+      setOtpRequested(false);
+      setOtpValue('');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -338,13 +364,37 @@ const Fees = () => {
                     <div><span style={{ color: 'var(--text-muted)' }}>Amount Paid:</span> <strong style={{ color: 'var(--text-main)' }}>₹{paymentSuccessData.amount}</strong></div>
                     <div><span style={{ color: 'var(--text-muted)' }}>Timestamp:</span> <strong style={{ color: 'var(--text-main)' }}>{paymentSuccessData.date}</strong></div>
                   </div>
-
+                  <p style={{ margin: '12px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>This window will close automatically...</p>
+                </div>
+              ) : otpRequested ? (
+                /* OTP Verification Screen */
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '16px 0', gap: '12px' }}>
+                  <h3 style={{ margin: 0, color: 'var(--text-main)', fontWeight: 'bold', fontSize: '1.25rem' }}>Bank Verification</h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Please enter the OTP sent to your registered mobile number to authorize this transaction of <strong>₹{activePaymentAppt.amount}</strong>.
+                  </p>
+                  
+                  <input 
+                    type="text" 
+                    placeholder="Enter OTP (e.g. 1234)" 
+                    maxLength="6"
+                    style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '1.5rem', fontWeight: 'bold', padding: '12px', borderRadius: '8px', border: '2px solid var(--primary)', outline: 'none', width: '200px', marginTop: '12px' }}
+                    value={otpValue} 
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                  />
+                  
                   <button 
-                    onClick={() => setActivePaymentAppt(null)}
+                    onClick={verifyOTP}
                     className="btn-primary"
-                    style={{ width: '100%', marginTop: '16px', padding: '10px 0', background: '#059669' }}
+                    style={{ width: '100%', marginTop: '16px', padding: '12px 0' }}
                   >
-                    Done
+                    Verify & Pay
+                  </button>
+                  <button 
+                    onClick={() => { setOtpRequested(false); setOtpValue(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '0.85rem', cursor: 'pointer', marginTop: '8px', textDecoration: 'underline' }}
+                  >
+                    Cancel Transaction
                   </button>
                 </div>
               ) : (
