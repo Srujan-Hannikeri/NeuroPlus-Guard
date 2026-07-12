@@ -29,8 +29,69 @@ const PatientDashboard = () => {
       try {
         const { data } = await api.get('/prescriptions');
         setPrescriptions(data);
+        // Silently mark expired doses as missed
+        checkAndAutoMarkMissed(data);
       } catch (error) {
         console.error("Failed to fetch prescriptions", error);
+      }
+    };
+
+    const checkAndAutoMarkMissed = async (prescList) => {
+      let updatedAny = false;
+      const todayObj = new Date();
+      const currentHour = todayObj.getHours();
+
+      for (const presc of prescList) {
+        const timesToCheck = ['Morning', 'Afternoon', 'Night'].filter(time => 
+          presc.medicines.some(m => 
+            (time === 'Morning' && m.morning) || 
+            (time === 'Afternoon' && m.afternoon) || 
+            (time === 'Night' && m.night)
+          )
+        );
+
+        for (const time of timesToCheck) {
+          const hasLog = presc.history?.some(h => {
+            const hDate = new Date(h.date);
+            if (time === 'Night' && currentHour < 21) {
+              const yesterday = new Date(todayObj);
+              yesterday.setDate(yesterday.getDate() - 1);
+              return hDate.getDate() === yesterday.getDate() &&
+                     hDate.getMonth() === yesterday.getMonth() &&
+                     hDate.getFullYear() === yesterday.getFullYear() &&
+                     h.timeOfDay === time;
+            }
+            return hDate.getDate() === todayObj.getDate() &&
+                   hDate.getMonth() === todayObj.getMonth() &&
+                   hDate.getFullYear() === todayObj.getFullYear() &&
+                   h.timeOfDay === time;
+          });
+
+          if (!hasLog) {
+            let shouldMarkMissed = false;
+            if (time === 'Morning' && currentHour >= 12) shouldMarkMissed = true;
+            else if (time === 'Afternoon' && currentHour >= 18) shouldMarkMissed = true;
+            else if (time === 'Night' && currentHour >= 1 && currentHour < 21) shouldMarkMissed = true;
+
+            if (shouldMarkMissed) {
+              try {
+                await api.put(`/prescriptions/${presc._id}/status`, { status: 'Missed', timeOfDay: time });
+                updatedAny = true;
+              } catch (e) {
+                console.error("Auto missed update failed", e);
+              }
+            }
+          }
+        }
+      }
+
+      if (updatedAny) {
+        try {
+          const { data } = await api.get('/prescriptions');
+          setPrescriptions(data);
+        } catch (e) {
+          console.error(e);
+        }
       }
     };
 
@@ -68,11 +129,27 @@ const PatientDashboard = () => {
   const getPendingMedicines = () => {
     const pending = [];
     const todayObj = new Date();
+    const currentHour = todayObj.getHours();
+
+    let currentWindowExpired = false;
+    if (currentTimeOfDay === 'Morning' && currentHour >= 12) currentWindowExpired = true;
+    else if (currentTimeOfDay === 'Afternoon' && currentHour >= 18) currentWindowExpired = true;
+    else if (currentTimeOfDay === 'Night' && currentHour >= 1 && currentHour < 21) currentWindowExpired = true;
+
+    if (currentWindowExpired) return [];
+
     if (!Array.isArray(prescriptions)) return pending;
     prescriptions.forEach(p => {
-      // Check if logged today for the current timeOfDay
       const logged = p.history?.some(h => {
         const hDate = new Date(h.date);
+        if (currentTimeOfDay === 'Night' && currentHour < 21) {
+          const yesterday = new Date(todayObj);
+          yesterday.setDate(yesterday.getDate() - 1);
+          return hDate.getDate() === yesterday.getDate() &&
+                 hDate.getMonth() === yesterday.getMonth() &&
+                 hDate.getFullYear() === yesterday.getFullYear() &&
+                 h.timeOfDay === currentTimeOfDay;
+        }
         return hDate.getDate() === todayObj.getDate() &&
                hDate.getMonth() === todayObj.getMonth() &&
                hDate.getFullYear() === todayObj.getFullYear() &&

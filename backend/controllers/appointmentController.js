@@ -83,6 +83,36 @@ exports.requestAppointment = async (req, res) => {
   }
 };
 
+exports.createAppointmentByDoctor = async (req, res) => {
+  try {
+    if (req.user.role !== 'Doctor') {
+      return res.status(403).json({ message: 'Only Doctors can directly create appointments.' });
+    }
+    const { patientId, notes, scheduledAt, feeAmount } = req.body;
+    
+    // Convert to local time mimicking the frontend input
+    let localDate = null;
+    if (scheduledAt) {
+      const utcDate = new Date(scheduledAt);
+      localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
+    }
+    
+    const appointment = await Appointment.create({
+      patient: patientId,
+      doctor: req.user._id,
+      notes: notes || 'Doctor initiated consultation',
+      scheduledAt: localDate,
+      feeAmount: feeAmount || 0,
+      feeStatus: feeAmount > 0 ? 'Pending' : 'Paid',
+      amountPaid: 0,
+      status: 'Accepted'
+    });
+    res.status(201).json(appointment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.updateAppointmentStatus = async (req, res) => {
   try {
     const { id } = req.params;

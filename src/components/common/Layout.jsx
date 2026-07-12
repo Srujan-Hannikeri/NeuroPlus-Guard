@@ -151,7 +151,7 @@ const Layout = ({ children }) => {
     };
     
     pollIncomingCalls();
-    const interval = setInterval(pollIncomingCalls, 5000);
+    const interval = setInterval(pollIncomingCalls, 15000);
     
     return () => {
       isMounted = false;

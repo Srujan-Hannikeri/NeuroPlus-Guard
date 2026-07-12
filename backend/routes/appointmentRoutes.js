@@ -1,7 +1,8 @@
 const express = require('express');
-const { requestAppointment, updateAppointmentStatus, getAppointments, updateAppointmentFee, payAppointmentFee, rescheduleAppointment } = require('../controllers/appointmentController');
+const { requestAppointment, updateAppointmentStatus, getAppointments, updateAppointmentFee, payAppointmentFee, rescheduleAppointment, createAppointmentByDoctor } = require('../controllers/appointmentController');
 const { protect } = require('../middlewares/authMiddleware');
 const router = express.Router();
+router.post('/create-by-doctor', protect, createAppointmentByDoctor);
 router.put('/:id/reschedule', protect, rescheduleAppointment);
 router.post('/request', protect, requestAppointment);
 router.put('/:id/status', protect, updateAppointmentStatus);

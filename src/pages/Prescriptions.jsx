@@ -28,10 +28,72 @@ const Prescriptions = () => {
     try {
       const { data } = await api.get('/prescriptions');
       setPrescriptions(data);
+      if (user?.role === 'Patient') {
+        checkAndAutoMarkMissed(data);
+      }
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAndAutoMarkMissed = async (prescList) => {
+    let updatedAny = false;
+    const todayObj = new Date();
+    const currentHour = todayObj.getHours();
+
+    for (const presc of prescList) {
+      const timesToCheck = ['Morning', 'Afternoon', 'Night'].filter(time => 
+        presc.medicines.some(m => 
+          (time === 'Morning' && m.morning) || 
+          (time === 'Afternoon' && m.afternoon) || 
+          (time === 'Night' && m.night)
+        )
+      );
+
+      for (const time of timesToCheck) {
+        const hasLog = presc.history?.some(h => {
+          const hDate = new Date(h.date);
+          if (time === 'Night' && currentHour < 21) {
+            const yesterday = new Date(todayObj);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return hDate.getDate() === yesterday.getDate() &&
+                   hDate.getMonth() === yesterday.getMonth() &&
+                   hDate.getFullYear() === yesterday.getFullYear() &&
+                   h.timeOfDay === time;
+          }
+          return hDate.getDate() === todayObj.getDate() &&
+                 hDate.getMonth() === todayObj.getMonth() &&
+                 hDate.getFullYear() === todayObj.getFullYear() &&
+                 h.timeOfDay === time;
+        });
+
+        if (!hasLog) {
+          let shouldMarkMissed = false;
+          if (time === 'Morning' && currentHour >= 12) shouldMarkMissed = true;
+          else if (time === 'Afternoon' && currentHour >= 18) shouldMarkMissed = true;
+          else if (time === 'Night' && currentHour >= 1 && currentHour < 21) shouldMarkMissed = true;
+
+          if (shouldMarkMissed) {
+            try {
+              await api.put(`/prescriptions/${presc._id}/status`, { status: 'Missed', timeOfDay: time });
+              updatedAny = true;
+            } catch (e) {
+              console.error("Auto missed update failed", e);
+            }
+          }
+        }
+      }
+    }
+
+    if (updatedAny) {
+      try {
+        const { data } = await api.get('/prescriptions');
+        setPrescriptions(data);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -195,20 +257,48 @@ const Prescriptions = () => {
                         );
                       }).map(time => {
                         const todayObj = new Date();
-                        const isLoggedToday = presc.history?.some(h => {
+                        const currentHour = todayObj.getHours();
+                        const log = presc.history?.find(h => {
                           const hDate = new Date(h.date);
+                          if (time === 'Night' && currentHour < 21) {
+                            const yesterday = new Date(todayObj);
+                            yesterday.setDate(yesterday.getDate() - 1);
+                            return hDate.getDate() === yesterday.getDate() &&
+                                   hDate.getMonth() === yesterday.getMonth() &&
+                                   hDate.getFullYear() === yesterday.getFullYear() &&
+                                   h.timeOfDay === time;
+                          }
                           return hDate.getDate() === todayObj.getDate() &&
                                  hDate.getMonth() === todayObj.getMonth() &&
                                  hDate.getFullYear() === todayObj.getFullYear() &&
                                  h.timeOfDay === time;
                         });
-                        
-                        return (
-                          <div key={time} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#fff', padding: '8px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>{time}:</span>
-                            {isLoggedToday ? (
-                               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Logged Today</span>
-                            ) : (
+
+                        let statusDisplay = null;
+                        if (log) {
+                          statusDisplay = (
+                            <span style={{ 
+                              fontSize: '0.8rem', 
+                              fontWeight: 'bold', 
+                              color: log.status === 'Taken' ? '#10b981' : 'var(--error)'
+                            }}>
+                              {log.status === 'Taken' ? 'Taken' : 'Missed'}
+                            </span>
+                          );
+                        } else {
+                          let isExpired = false;
+                          if (time === 'Morning' && currentHour >= 12) isExpired = true;
+                          else if (time === 'Afternoon' && currentHour >= 18) isExpired = true;
+                          else if (time === 'Night' && currentHour >= 1 && currentHour < 21) isExpired = true;
+
+                          if (isExpired) {
+                            statusDisplay = (
+                              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--error)' }}>
+                                Missed ❌
+                              </span>
+                            );
+                          } else {
+                            statusDisplay = (
                               <>
                                 <button onClick={() => handleStatusUpdate(presc._id, 'Taken', time)} className="btn-primary" style={{ background: '#10b981', padding: '4px 8px', fontSize: '0.75rem' }}>
                                   Taken
@@ -217,7 +307,14 @@ const Prescriptions = () => {
                                   Missed
                                 </button>
                               </>
-                            )}
+                            );
+                          }
+                        }
+                        
+                        return (
+                          <div key={time} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#fff', padding: '8px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>{time}:</span>
+                            {statusDisplay}
                           </div>
                         );
                       })}

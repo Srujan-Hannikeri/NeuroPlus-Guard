@@ -100,7 +100,7 @@ const Sidebar = () => {
     };
 
     fetchBadges();
-    const interval = setInterval(fetchBadges, 5000);
+    const interval = setInterval(fetchBadges, 25000);
 
     return () => {
       isMounted = false;

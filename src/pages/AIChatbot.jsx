@@ -91,10 +91,10 @@ const AIChatbot = () => {
         </div>
       </nav>
 
-      <div className="glass-panel" style={{ height: '60vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="glass-panel" style={{ height: '75vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, padding: '12px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {messages.map((msg, idx) => (
-            <div key={idx} style={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', background: msg.sender === 'user' ? 'var(--primary)' : '#e2e8f0', color: msg.sender === 'user' ? '#fff' : '#1e293b', padding: '12px 16px', borderRadius: '16px', maxWidth: '80%', overflowWrap: 'break-word', lineHeight: '1.5' }}>
+            <div key={idx} style={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', background: msg.sender === 'user' ? 'var(--primary)' : '#e2e8f0', color: msg.sender === 'user' ? '#fff' : '#1e293b', padding: '12px 16px', borderRadius: '16px', maxWidth: '90%', overflowWrap: 'break-word', lineHeight: '1.5' }}>
               {msg.image && <img src={msg.image} alt="User uploaded" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '8px' }} />}
               {msg.text && (msg.sender === 'bot' ? renderMarkdown(msg.text) : <div>{msg.text}</div>)}
             </div>
