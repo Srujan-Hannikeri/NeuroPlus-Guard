@@ -17,11 +17,11 @@ const Prescriptions = () => {
   const [medicines, setMedicines] = useState([{ name: '', numberOfTablets: '', morning: false, afternoon: false, night: false, durationDays: '' }]);
 
   useEffect(() => {
+    localStorage.setItem('lastViewedPrescriptions', new Date().toISOString());
     fetchPrescriptions();
     if (user?.role === 'Doctor') {
       fetchPatients();
     }
-    localStorage.setItem('lastViewedPrescriptions', new Date().toISOString());
   }, [user]);
 
   const fetchPrescriptions = async () => {

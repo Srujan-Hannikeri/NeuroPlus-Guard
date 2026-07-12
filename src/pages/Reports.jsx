@@ -14,8 +14,8 @@ const Reports = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetchReports();
     localStorage.setItem('lastViewedReports', new Date().toISOString());
+    fetchReports();
   }, []);
 
   const fetchReports = async () => {

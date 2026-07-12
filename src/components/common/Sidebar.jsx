@@ -73,22 +73,25 @@ const Sidebar = () => {
           console.error("Sidebar reports polling error", e);
         }
 
-        // 5. Calculate unpaid fees
-        let unpaidFeesCount = 0;
-        apptList.forEach(appt => {
-          if (appt.feeHistory && appt.feeHistory.length > 0) {
-            unpaidFeesCount += appt.feeHistory.filter(f => f.status !== 'Paid').length;
-          } else if (appt.feeAmount > 0 && appt.feeStatus !== 'Paid') {
-            unpaidFeesCount += 1;
-          }
-        });
+        // 5. Calculate unseen fees
+        let newFeesCount = 0;
+        try {
+          const lastViewedFees = localStorage.getItem('lastViewedFees') || 0;
+          apptList.forEach(appt => {
+            if (appt.feeAmount > 0 && appt.feeStatus !== 'Paid') {
+              if (new Date(appt.updatedAt || appt.createdAt).getTime() > new Date(lastViewedFees).getTime()) {
+                newFeesCount += 1;
+              }
+            }
+          });
+        } catch(e) {}
 
         if (isMounted) {
           setBadges({
             consultation: unreadChatCount,
             prescriptions: newPrescCount,
             reports: newRepsCount,
-            fees: unpaidFeesCount
+            fees: newFeesCount
           });
         }
       } catch (err) {
@@ -205,26 +208,17 @@ const Sidebar = () => {
               <span className="sidebar-text" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginLeft: '12px' }}>
                 {item.name}
                 {count > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      background: '#ef4444',
-                      boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)'
-                    }}></span>
-                    <span style={{
-                      background: '#ef4444',
-                      color: '#fff',
-                      borderRadius: '10px',
-                      padding: '1px 6px',
-                      fontSize: '0.68rem',
-                      fontWeight: 'bold',
-                      display: 'inline-block'
-                    }}>
-                      {count}
-                    </span>
-                  </div>
+                  <span style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    padding: '1px 6px',
+                    fontSize: '0.68rem',
+                    fontWeight: 'bold',
+                    display: 'inline-block'
+                  }}>
+                    {count}
+                  </span>
                 )}
               </span>
             </NavLink>

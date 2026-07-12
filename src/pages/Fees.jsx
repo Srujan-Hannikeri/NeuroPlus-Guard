@@ -33,6 +33,7 @@ const Fees = () => {
   const [selectedBank, setSelectedBank] = useState('');
 
   useEffect(() => {
+    localStorage.setItem('lastViewedFees', new Date().toISOString());
     fetchAppointments();
   }, []);
 
