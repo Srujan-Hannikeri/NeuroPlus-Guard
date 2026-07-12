@@ -14,6 +14,7 @@ const DoctorAppointments = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [scheduleDate, setScheduleDate] = useState('');
   const [feeAmount, setFeeAmount] = useState('');
+  const [filter, setFilter] = useState('All');
   
   // New Appointment State
   const [patients, setPatients] = useState([]);
@@ -115,9 +116,14 @@ const DoctorAppointments = () => {
       setAppointments(data);
     } catch (e) {
       console.error(e);
-      alert(e.response?.data?.message || 'Failed to create appointment');
+      alert('Failed to create appointment');
     }
   };
+
+  const filteredAppointments = appointments.filter(appt => {
+    if (filter === 'All') return true;
+    return appt.status === filter;
+  });
 
   return (
     <div className="dashboard-container">
@@ -139,11 +145,33 @@ const DoctorAppointments = () => {
               + Add Appointment
             </button>
           </div>
-          {appointments.length === 0 ? (
-            <p>No appointments.</p>
+
+          {/* Filter tabs */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {['All', 'Pending', 'Accepted', 'Completed', 'Rejected'].map(status => (
+              <button 
+                key={status} 
+                onClick={() => setFilter(status)}
+                className="btn-primary"
+                style={{ 
+                  background: filter === status ? 'var(--primary)' : 'rgba(15, 130, 135, 0.08)',
+                  color: filter === status ? '#fff' : 'var(--primary)',
+                  border: '1.5px solid var(--primary)',
+                  padding: '6px 14px', 
+                  fontSize: '0.85rem',
+                  boxShadow: 'none'
+                }}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
+          {filteredAppointments.length === 0 ? (
+            <p>No {filter.toLowerCase()} appointments.</p>
           ) : (
             <div style={{ display: 'grid', gap: '12px' }}>
-              {appointments.map(appt => (
+              {filteredAppointments.map(appt => (
                 <div key={appt._id} className="glass-panel" style={{ padding: '12px', borderRadius: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>

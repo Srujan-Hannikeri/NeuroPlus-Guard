@@ -124,6 +124,17 @@ app.use('/api', async (req, res, next) => {
 
 // Routes — only mount if they loaded successfully
 if (routesLoaded) {
+  const { protect } = require('../backend/middlewares/authMiddleware');
+  app.get('/api/patients', protect, async (req, res) => {
+    try {
+      const User = require('../backend/models/User');
+      const patients = await User.find({ role: 'Patient' }).select('-password');
+      res.json(patients);
+    } catch (e) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.use('/api/auth', authRoutes);
   app.use('/api/doctors', doctorRoutes);
   app.use('/api/appointments', appointmentRoutes);
