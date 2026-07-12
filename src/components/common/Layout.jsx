@@ -144,6 +144,31 @@ const Layout = ({ children }) => {
               }
             }
           }
+        } else if (user.role === 'Doctor') {
+          const lastViewedFees = localStorage.getItem('lastViewedFees') || 0;
+          apptList.forEach(appt => {
+            const feesToCheck = appt.feeHistory && appt.feeHistory.length > 0
+              ? appt.feeHistory
+              : (appt.feeAmount > 0 ? [{ _id: 'legacy', amount: appt.feeAmount, status: appt.feeStatus, date: appt.updatedAt || appt.createdAt }] : []);
+
+            feesToCheck.forEach(fee => {
+              if (fee.status === 'Paid') {
+                const payTime = new Date(fee.date || appt.updatedAt).getTime();
+                if (payTime > new Date(lastViewedFees).getTime()) {
+                  const feeId = fee._id === 'legacy' ? appt._id : fee._id;
+                  const notifiedKey = `notified-payment-${feeId}`;
+                  if (!localStorage.getItem(notifiedKey)) {
+                    localStorage.setItem(notifiedKey, 'true');
+                    if (Notification.permission === 'granted') {
+                      new Notification("Payment Received", {
+                        body: `Patient ${appt.patient?.name || 'Patient'} paid ₹${fee.amount} for consultation.`
+                      });
+                    }
+                  }
+                }
+              }
+            });
+          });
         }
       } catch (err) {
         console.error("Error polling incoming calls in layout:", err);
@@ -219,6 +244,15 @@ const Layout = ({ children }) => {
       isMounted = false;
       clearInterval(interval);
     };
+  }, [user]);
+
+  // Global online heartbeat ping every 20 seconds
+  useEffect(() => {
+    if (!user) return;
+    const ping = () => api.post('/communication/heartbeat').catch(() => {});
+    ping();
+    const interval = setInterval(ping, 20000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleAnswer = (call) => {

@@ -30,7 +30,11 @@ const Fees = () => {
   const [upiId, setUpiId] = useState('');
   const [selectedBank, setSelectedBank] = useState('');
 
+  const [lastViewedTime, setLastViewedTime] = useState(null);
+
   useEffect(() => {
+    const prevTime = localStorage.getItem('lastViewedFees') || 0;
+    setLastViewedTime(prevTime);
     localStorage.setItem('lastViewedFees', new Date().toISOString());
     fetchAppointments();
   }, []);
@@ -221,15 +225,32 @@ const Fees = () => {
               })
               .sort((a, b) => new Date(b.fee.date) - new Date(a.fee.date))
               .map(({ appt, fee }, index) => {
-                const uniqueKey = fee._id === 'legacy' ? appt._id : fee._id;
-                const pendingBal = fee.amount - (fee.amountPaid || 0);
-                
-                return (
-              <div key={`${appt._id}-${uniqueKey}-${index}`} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                <div>
-                  <h4 style={{ color: 'var(--text-main)', marginBottom: '4px' }}>
-                    {user?.role === 'Doctor' ? `Patient: ${appt.patient?.name}` : `Consultation with Dr. ${appt.doctor?.name}`}
-                  </h4>
+                 const uniqueKey = fee._id === 'legacy' ? appt._id : fee._id;
+                 const pendingBal = fee.amount - (fee.amountPaid || 0);
+                 
+                 const isNewPaymentForDoctor = user?.role === 'Doctor' && 
+                   fee.status === 'Paid' && 
+                   new Date(fee.date || appt.updatedAt).getTime() > new Date(lastViewedTime || 0).getTime();
+                 
+                 return (
+               <div key={`${appt._id}-${uniqueKey}-${index}`} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                 <div>
+                   <h4 style={{ color: 'var(--text-main)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                     {user?.role === 'Doctor' ? `Patient: ${appt.patient?.name}` : `Consultation with Dr. ${appt.doctor?.name}`}
+                     {isNewPaymentForDoctor && (
+                       <span style={{ 
+                         background: 'var(--error)', 
+                         color: '#fff', 
+                         padding: '2px 8px', 
+                         borderRadius: '12px', 
+                         fontSize: '0.7rem', 
+                         fontWeight: 'bold',
+                         boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
+                       }}>
+                         🔴 New Payment
+                       </span>
+                     )}
+                   </h4>
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Date: {new Date(fee.date).toLocaleDateString()}</p>
                   <p style={{ fontSize: '1.1rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px' }}>
                     Total Fee: ₹{fee.amount}

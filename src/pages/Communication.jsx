@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Phone, Video, Send, Mic, MicOff, VideoOff, PhoneOff, User, MessageSquare, ShieldCheck, Heart, Search } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Send, User, Shield, AlertTriangle, Play, Pause, Paperclip, Download, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import axios from 'axios';
 
@@ -335,13 +335,7 @@ const Communication = () => {
     return () => clearInterval(interval);
   }, [appointments, user, hasJoined]);
 
-  // Send heartbeat every 20s so others can see us as online
-  useEffect(() => {
-    const ping = () => api.post('/communication/heartbeat').catch(() => {});
-    ping();
-    const interval = setInterval(ping, 20000);
-    return () => clearInterval(interval);
-  }, []);
+  // Send heartbeat globally handled in Layout.jsx
 
   // Poll online users list every 5s
   useEffect(() => {
@@ -1112,7 +1106,7 @@ const Communication = () => {
                   onClick={() => {
                     setIsAudioCall(true);
                     setIsInitiator(true);
-                    setShowCallConfirm(true);
+                    initiateCall(false);
                   }}
                   className="btn-primary" 
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--primary)', fontSize: '0.82rem', flexShrink: 0, borderRadius: '24px' }}
@@ -1123,7 +1117,7 @@ const Communication = () => {
                   onClick={() => {
                     setIsAudioCall(false);
                     setIsInitiator(true);
-                    setShowCallConfirm(true);
+                    initiateCall(false);
                   }}
                   className="btn-primary" 
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#10b981', fontSize: '0.82rem', flexShrink: 0, borderRadius: '24px' }}
@@ -1184,7 +1178,7 @@ const Communication = () => {
                       {!remoteStream && <p style={{ color: '#fff', opacity: 0.5, position: 'absolute', zIndex: 1, fontSize: '0.85rem' }}>Waiting for peer to join...</p>}
                       
                       {/* Self Video PIP */}
-                      <div style={{ position: 'absolute', bottom: isMobile ? '125px' : '12px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
+                      <div style={{ position: 'absolute', bottom: isMobile ? '125px' : '80px', right: '12px', width: '110px', height: '82px', backgroundColor: '#333', borderRadius: '6px', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', zIndex: 2 }}>
                          <video 
                             ref={localVideoRef} 
                             autoPlay 
@@ -1194,6 +1188,43 @@ const Communication = () => {
                          />
                          {isVideoOff && <VideoOff color="#fff" size={20} opacity={0.5} />}
                       </div>
+
+                      {/* Fullscreen Toggle Button at video bottom-right */}
+                      <button 
+                        onClick={() => {
+                          if (!isFullscreen) {
+                            const el = videoCallContainerRef.current;
+                            if (el) {
+                              if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+                              else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen().catch(() => {});
+                              setIsFullscreen(true);
+                            }
+                          } else {
+                            exitNativeFullscreen();
+                            setIsFullscreen(false);
+                          }
+                        }} 
+                        style={{ 
+                          position: 'absolute', 
+                          bottom: '12px', 
+                          right: '12px', 
+                          width: '32px', 
+                          height: '32px', 
+                          borderRadius: '4px', 
+                          border: 'none', 
+                          background: 'rgba(0, 0, 0, 0.6)', 
+                          color: '#fff', 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          zIndex: 2,
+                          backdropFilter: 'blur(4px)'
+                        }}
+                        title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                      >
+                        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                      </button>
                     </>
                   )}
 
