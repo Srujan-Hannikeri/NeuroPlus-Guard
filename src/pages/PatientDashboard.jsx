@@ -36,6 +36,22 @@ const PatientDashboard = () => {
       }
     };
 
+    const getDoseStartTime = (timeOfDay) => {
+      const now = new Date();
+      const d = new Date(now);
+      if (timeOfDay === 'Morning') {
+        d.setHours(8, 0, 0, 0);
+      } else if (timeOfDay === 'Afternoon') {
+        d.setHours(14, 0, 0, 0);
+      } else if (timeOfDay === 'Night') {
+        if (now.getHours() < 21) {
+          d.setDate(d.getDate() - 1);
+        }
+        d.setHours(21, 0, 0, 0);
+      }
+      return d;
+    };
+
     const checkAndAutoMarkMissed = async (prescList) => {
       let updatedAny = false;
       const todayObj = new Date();
@@ -51,6 +67,16 @@ const PatientDashboard = () => {
         );
 
         for (const time of timesToCheck) {
+          // Skip if prescription was created after this slot's start time
+          const doseStartTime = getDoseStartTime(time);
+          const prescCreatedTime = new Date(presc.createdAt);
+          doseStartTime.setSeconds(0, 0);
+          prescCreatedTime.setSeconds(0, 0);
+          
+          if (prescCreatedTime.getTime() > doseStartTime.getTime()) {
+            continue;
+          }
+
           const hasLog = presc.history?.some(h => {
             const hDate = new Date(h.date);
             if (time === 'Night' && currentHour < 21) {
@@ -140,6 +166,15 @@ const PatientDashboard = () => {
 
     if (!Array.isArray(prescriptions)) return pending;
     prescriptions.forEach(p => {
+      // Skip if prescription was created after this slot's start time
+      const doseStartTime = getDoseStartTime(currentTimeOfDay);
+      const prescCreatedTime = new Date(p.createdAt);
+      doseStartTime.setSeconds(0, 0);
+      prescCreatedTime.setSeconds(0, 0);
+      if (prescCreatedTime.getTime() > doseStartTime.getTime()) {
+        return;
+      }
+
       const logged = p.history?.some(h => {
         const hDate = new Date(h.date);
         if (currentTimeOfDay === 'Night' && currentHour < 21) {

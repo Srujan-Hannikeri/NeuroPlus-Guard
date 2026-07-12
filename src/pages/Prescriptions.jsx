@@ -38,6 +38,22 @@ const Prescriptions = () => {
     }
   };
 
+  const getDoseStartTime = (timeOfDay) => {
+    const now = new Date();
+    const d = new Date(now);
+    if (timeOfDay === 'Morning') {
+      d.setHours(8, 0, 0, 0);
+    } else if (timeOfDay === 'Afternoon') {
+      d.setHours(14, 0, 0, 0);
+    } else if (timeOfDay === 'Night') {
+      if (now.getHours() < 21) {
+        d.setDate(d.getDate() - 1);
+      }
+      d.setHours(21, 0, 0, 0);
+    }
+    return d;
+  };
+
   const checkAndAutoMarkMissed = async (prescList) => {
     let updatedAny = false;
     const todayObj = new Date();
@@ -53,6 +69,16 @@ const Prescriptions = () => {
       );
 
       for (const time of timesToCheck) {
+        // Skip if prescription was created after this slot's start time
+        const doseStartTime = getDoseStartTime(time);
+        const prescCreatedTime = new Date(presc.createdAt);
+        doseStartTime.setSeconds(0, 0);
+        prescCreatedTime.setSeconds(0, 0);
+        
+        if (prescCreatedTime.getTime() > doseStartTime.getTime()) {
+          continue;
+        }
+
         const hasLog = presc.history?.some(h => {
           const hDate = new Date(h.date);
           if (time === 'Night' && currentHour < 21) {
@@ -258,6 +284,16 @@ const Prescriptions = () => {
                       }).map(time => {
                         const todayObj = new Date();
                         const currentHour = todayObj.getHours();
+                        
+                        // Hide slot if the prescription was created after the slot started
+                        const doseStartTime = getDoseStartTime(time);
+                        const prescCreatedTime = new Date(presc.createdAt);
+                        doseStartTime.setSeconds(0, 0);
+                        prescCreatedTime.setSeconds(0, 0);
+                        if (prescCreatedTime.getTime() > doseStartTime.getTime()) {
+                          return null;
+                        }
+
                         const log = presc.history?.find(h => {
                           const hDate = new Date(h.date);
                           if (time === 'Night' && currentHour < 21) {
