@@ -322,14 +322,15 @@ const Layout = ({ children }) => {
               fontWeight: 'bold',
               color: '#fff'
             }}>
-              {(user.role === 'Doctor' ? incomingCall.appointment.patient?.name : incomingCall.appointment.doctor?.name)?.replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
+              {((user?.role === 'Doctor' ? incomingCall.appointment?.patient?.name : incomingCall.appointment?.doctor?.name) || 'U')
+                .replace(/^Dr\.\s*/i, '').charAt(0).toUpperCase()}
             </div>
             <div>
               <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 'bold', letterSpacing: '0.3px' }}>
                 Incoming consultation call...
               </h5>
               <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#cbd5e1' }}>
-                {user.role === 'Doctor' ? incomingCall.appointment.patient?.name : `Dr. ${incomingCall.appointment.doctor?.name?.replace(/^Dr\.\s*/i, '')}`}
+                {user?.role === 'Doctor' ? (incomingCall.appointment?.patient?.name || 'Patient') : `Dr. ${(incomingCall.appointment?.doctor?.name || 'Doctor').replace(/^Dr\.\s*/i, '')}`}
               </p>
             </div>
           </div>
