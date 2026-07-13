@@ -60,6 +60,7 @@ const Prescriptions = () => {
     const currentHour = todayObj.getHours();
 
     for (const presc of prescList) {
+      if (!Array.isArray(presc.medicines)) continue;
       const timesToCheck = ['Morning', 'Afternoon', 'Night'].filter(time => 
         presc.medicines.some(m => 
           (time === 'Morning' && m.morning) || 
@@ -276,6 +277,7 @@ const Prescriptions = () => {
                     <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '8px' }}>Log Dose:</p>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       {['Morning', 'Afternoon', 'Night'].filter(time => {
+                        if (!Array.isArray(presc.medicines)) return false;
                         return presc.medicines.some(m => 
                           (time === 'Morning' && m.morning) || 
                           (time === 'Afternoon' && m.afternoon) || 
@@ -318,7 +320,7 @@ const Prescriptions = () => {
                               fontWeight: 'bold', 
                               color: log.status === 'Taken' ? '#10b981' : 'var(--error)'
                             }}>
-                              {log.status === 'Taken' ? 'Taken' : 'Missed'}
+                              {log.status === 'Taken' ? 'Taken ✅' : 'Missed ❌'}
                             </span>
                           );
                         } else {
@@ -353,7 +355,7 @@ const Prescriptions = () => {
                             {statusDisplay}
                           </div>
                         );
-                      })}
+                      }).filter(Boolean)}
                     </div>
                   </div>
                 )}
