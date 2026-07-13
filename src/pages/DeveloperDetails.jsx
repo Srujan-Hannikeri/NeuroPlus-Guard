@@ -45,7 +45,7 @@ const DeveloperDetails = () => {
     { icon: <User size={24} />, label: 'Developer', value: 'Srujan Hannikeri' },
     { icon: <Phone size={24} />, label: 'Phone', value: '+91 9886217143' },
     { icon: <Mail size={24} />, label: 'Email', value: 'srujanhannikeri@gmail.com' },
-    { icon: <Linkedin size={24} />, label: 'LinkedIn', value: 'Srujan Hannikeri', link: 'https://www.linkedin.com/in/srujan-hannikeri' },
+    { icon: <Linkedin size={24} />, label: 'LinkedIn', value: 'Srujan Hannikeri', link: 'https://www.linkedin.com/in/srujan-hannikeri-095936336/' },
     { icon: <Instagram size={24} />, label: 'Instagram', value: '@srujan_hannikeri', link: 'https://instagram.com/srujan_hannikeri' },
   ];
 
