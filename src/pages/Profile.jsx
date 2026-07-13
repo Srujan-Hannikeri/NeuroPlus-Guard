@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 import { User } from 'lucide-react';
@@ -72,6 +73,7 @@ const Profile = () => {
           <Logo width={40} height={40} />
           <h2>My Profile</h2>
         </div>
+        <LiveClock />
         {!isEditing && (
           <button className="btn-primary" onClick={() => setIsEditing(true)}>
             Update Profile

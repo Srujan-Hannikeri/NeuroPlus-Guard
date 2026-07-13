@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { useNavigate } from 'react-router-dom';
 
 const Prescriptions = () => {
@@ -183,6 +184,7 @@ const Prescriptions = () => {
           <Logo width={40} height={40} />
           <h2>NeuroPlus Guard - Prescriptions</h2>
         </div>
+        <LiveClock />
       </nav>
 
       {user?.role === 'Doctor' && (

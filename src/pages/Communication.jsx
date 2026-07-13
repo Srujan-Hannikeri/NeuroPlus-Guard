@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Send, User, Shield, AlertTriangle, Play, Pause, Paperclip, Download, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
@@ -744,6 +745,7 @@ const Communication = () => {
           <Logo width={40} height={40} />
           <h2>Consultation & Chat</h2>
         </div>
+        <LiveClock />
       </nav>
 
       {/* Global Incoming Call Alert Banner */}

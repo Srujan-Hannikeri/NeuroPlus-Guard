@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { Users, Clock, CheckCircle, User, MessageSquare, Video, Info } from 'lucide-react';
 
 const DoctorDashboard = () => {
@@ -107,6 +108,7 @@ const DoctorDashboard = () => {
           <Logo width={40} height={40} />
           <h2>NeuroPlus Guard - Doctor Dashboard</h2>
         </div>
+        <LiveClock />
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }} style={{ color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}><Info size={18} /> About Us</a>
         </div>

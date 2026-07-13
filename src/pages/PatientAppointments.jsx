@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { Calendar, CheckCircle, XCircle, Clock, CreditCard, Loader, Info } from 'lucide-react';
 
 const PatientAppointments = () => {
@@ -146,6 +147,7 @@ const PatientAppointments = () => {
           <Logo width={40} height={40} />
           <h2>My Appointments</h2>
         </div>
+        <LiveClock />
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <a href="/about" onClick={e => { e.preventDefault(); navigate('/about'); }} style={{ color: 'var(--primary)', textDecoration: 'none' }}>
             <Info size={18} /> About

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ImagePlus, Loader2 } from 'lucide-react';
@@ -87,8 +88,9 @@ const AIChatbot = () => {
       <nav className="nav-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate(-1)}>
           <Logo width={40} height={40} />
-          <h2>AI Symptom Checker</h2>
+          <h2>NeuroPlus Guard - AI Symptom Checker</h2>
         </div>
+        <LiveClock />
       </nav>
 
       <div className="glass-panel" style={{ height: '75vh', display: 'flex', flexDirection: 'column' }}>

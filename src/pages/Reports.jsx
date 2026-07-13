@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Logo from '../components/common/Logo';
+import LiveClock from '../components/common/LiveClock';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
@@ -103,6 +104,7 @@ const Reports = () => {
           <Logo width={40} height={40} />
           <h2>NeuroPlus Guard - Medical Reports</h2>
         </div>
+        <LiveClock />
       </nav>
 
       {user?.role === 'Patient' && (

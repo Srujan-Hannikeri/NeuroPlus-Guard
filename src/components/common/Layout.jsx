@@ -255,51 +255,6 @@ const Layout = ({ children }) => {
     return () => clearInterval(interval);
   }, [user]);
 
-  // Dynamic navbar live clock injection
-  useEffect(() => {
-    let timer;
-    const updateClock = () => {
-      const navBar = document.querySelector('.nav-bar');
-      if (!navBar) return;
-      
-      let clockEl = navBar.querySelector('.global-live-clock');
-      if (!clockEl) {
-        clockEl = document.createElement('div');
-        clockEl.className = 'global-live-clock desktop-only';
-        clockEl.style.fontSize = '0.85rem';
-        clockEl.style.fontWeight = '600';
-        clockEl.style.color = 'var(--text-muted)';
-        clockEl.style.background = 'rgba(15, 130, 135, 0.06)';
-        clockEl.style.padding = '6px 14px';
-        clockEl.style.borderRadius = '20px';
-        clockEl.style.border = '1px solid var(--glass-border)';
-        clockEl.style.display = 'inline-flex';
-        clockEl.style.alignItems = 'center';
-        clockEl.style.gap = '6px';
-        clockEl.style.whiteSpace = 'nowrap';
-        clockEl.style.marginLeft = 'auto';
-        clockEl.style.marginRight = '16px';
-        
-        // Insert right after the title or before the right links
-        const navTitle = navBar.firstElementChild;
-        if (navTitle && navTitle.nextSibling) {
-          navBar.insertBefore(clockEl, navTitle.nextSibling);
-        } else {
-          navBar.appendChild(clockEl);
-        }
-      }
-      
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const dateStr = now.toLocaleDateString();
-      clockEl.innerHTML = `📅 ${dateStr} | ⏰ ${timeStr}`;
-    };
-
-    timer = setInterval(updateClock, 1000);
-    updateClock();
-
-    return () => clearInterval(timer);
-  }, [location.pathname]);
 
   const handleAnswer = (call) => {
     playIncomingCallBeepGlobal.stop();
