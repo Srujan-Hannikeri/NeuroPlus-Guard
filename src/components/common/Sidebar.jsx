@@ -87,12 +87,13 @@ const Sidebar = () => {
         } catch(e) {}
 
         if (isMounted) {
-          setBadges({
+          setBadges(prev => ({
+            ...prev,
             consultation: unreadChatCount,
             prescriptions: newPrescCount,
             reports: newRepsCount,
             fees: newFeesCount
-          });
+          }));
         }
       } catch (err) {
         console.error("Error fetching badges in sidebar:", err);

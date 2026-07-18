@@ -35,7 +35,7 @@ class ErrorBoundary extends React.Component {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Inter, sans-serif', gap: '16px', padding: '24px', textAlign: 'center' }}>
           <h2 style={{ color: '#ef4444' }}>Something went wrong</h2>
           <p style={{ color: '#64748b', maxWidth: '400px' }}>{this.state.error?.message || 'An unexpected error occurred.'}</p>
-          <button onClick={() => { this.setState({ hasError: false }); window.location.href = '/'; }} style={{ background: '#0f8287', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={() => { this.setState({ hasError: false }); try { const userInfo = localStorage.getItem('userInfo'); if (userInfo) { const role = JSON.parse(userInfo).role; window.location.href = role === 'Doctor' ? '/doctor-dashboard' : '/patient-dashboard'; } else { window.location.href = '/login'; } } catch (e) { window.location.href = '/login'; } }} style={{ background: '#0f8287', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
             Go to Home
           </button>
         </div>
