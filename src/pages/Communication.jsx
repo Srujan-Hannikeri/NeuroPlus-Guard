@@ -1326,22 +1326,25 @@ const Communication = () => {
                           style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '2px',
+                            gap: '4px',
                             position: 'relative',
                             maxWidth: '75%'
                           }}
                         >
-                          <span style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>{msg.text}</span>
+                          {/* Payment messages should be slightly larger and more prominent */}
+                          <span style={{ fontSize: msg.type === 'payment' ? '1rem' : '0.95rem', fontWeight: msg.type === 'payment' ? 600 : 400, wordBreak: 'break-word', color: msg.type === 'payment' ? 'var(--text-main)' : 'inherit' }}>
+                            {msg.text}
+                          </span>
                           <span style={{ 
-                            fontSize: '0.65rem', 
+                            fontSize: '0.72rem', 
                             color: isMe ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)', 
                             alignSelf: 'flex-end',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '6px',
                             marginTop: '2px'
                           }}>
-                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : ''}
                             {isMe && (() => {
                               const recipientId = user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id;
                               const isCounterpartOnline = isContactOnline(recipientId);

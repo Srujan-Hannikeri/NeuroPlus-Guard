@@ -314,6 +314,8 @@ exports.payAppointmentFee = async (req, res) => {
           senderId: req.user._id.toString(),
           senderRole: req.user.role || 'Patient',
           text,
+          type: 'payment',
+          meta: { amount: paymentAmount, transactionId: transactionId || null, payerName },
           seen: false
         });
 

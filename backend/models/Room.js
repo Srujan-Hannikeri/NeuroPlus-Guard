@@ -4,6 +4,8 @@ const messageSchema = new mongoose.Schema({
   senderId: String,
   senderRole: String,
   text: String,
+  type: { type: String, default: 'chat' }, // e.g., 'chat', 'payment', 'system'
+  meta: mongoose.Schema.Types.Mixed,
   seen: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
