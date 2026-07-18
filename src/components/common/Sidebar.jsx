@@ -31,10 +31,10 @@ const Sidebar = () => {
         const apptList = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
         if (!isMounted) return;
         setAppointments(apptList);
-        // fetch badge count for appointments (unread or pending)
+
+        // compute all counts locally and update state once to avoid race conditions
         const lastViewedAppts = localStorage.getItem('lastViewedAppointments') || 0;
         const unseenCount = apptList.filter(a => new Date(a.updatedAt || a.createdAt).getTime() > new Date(lastViewedAppts).getTime()).length;
-        setBadges(prev => ({ ...prev, appointments: unseenCount }));
 
         // 2. Fetch room summaries
         let unreadChatCount = 0;
@@ -42,8 +42,8 @@ const Sidebar = () => {
           const roomIds = apptList.map(appt => `room-${appt._id}`);
           try {
             const { data: rooms } = await api.post('/communication/summary', { roomIds });
-            rooms.forEach(room => {
-              unreadChatCount += room.messages?.filter(msg => msg.senderId !== user._id && !msg.seen).length || 0;
+            (rooms || []).forEach(room => {
+              unreadChatCount += (room.messages?.filter(msg => msg.senderId !== user._id && !msg.seen).length) || 0;
               if (room.offer && !room.answer && room.offer.senderId !== user._id) {
                 unreadChatCount += 1;
               }
@@ -58,7 +58,7 @@ const Sidebar = () => {
         try {
           const { data: prescriptions } = await api.get('/prescriptions');
           const lastViewedPresc = localStorage.getItem('lastViewedPrescriptions') || 0;
-          newPrescCount = prescriptions.filter(p => new Date(p.createdAt).getTime() > new Date(lastViewedPresc).getTime()).length;
+          newPrescCount = (prescriptions || []).filter(p => new Date(p.createdAt).getTime() > new Date(lastViewedPresc).getTime()).length;
         } catch (e) {
           console.error("Sidebar prescriptions polling error", e);
         }
@@ -68,7 +68,7 @@ const Sidebar = () => {
         try {
           const { data: reports } = await api.get('/reports');
           const lastViewedReps = localStorage.getItem('lastViewedReports') || 0;
-          newRepsCount = reports.filter(r => new Date(r.createdAt).getTime() > new Date(lastViewedReps).getTime()).length;
+          newRepsCount = (reports || []).filter(r => new Date(r.createdAt).getTime() > new Date(lastViewedReps).getTime()).length;
         } catch (e) {
           console.error("Sidebar reports polling error", e);
         }
@@ -84,15 +84,18 @@ const Sidebar = () => {
               }
             }
           });
-        } catch(e) {}
+        } catch(e) {
+          console.error("Sidebar fees calculation error", e);
+        }
 
         if (isMounted) {
           setBadges(prev => ({
             ...prev,
-            consultation: unreadChatCount,
-            prescriptions: newPrescCount,
-            reports: newRepsCount,
-            fees: newFeesCount
+            appointments: typeof unseenCount === 'number' ? unseenCount : prev.appointments,
+            consultation: typeof unreadChatCount === 'number' ? unreadChatCount : prev.consultation,
+            prescriptions: typeof newPrescCount === 'number' ? newPrescCount : prev.prescriptions,
+            reports: typeof newRepsCount === 'number' ? newRepsCount : prev.reports,
+            fees: typeof newFeesCount === 'number' ? newFeesCount : prev.fees,
           }));
         }
       } catch (err) {
