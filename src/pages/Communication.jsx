@@ -4,7 +4,7 @@ import api from '../services/api';
 import Logo from '../components/common/Logo';
 import LiveClock from '../components/common/LiveClock';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Search, Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Send, User, Shield, AlertTriangle, Play, Pause, Paperclip, Download, Eye, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, MessageSquare, Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Send, User, Shield, AlertTriangle, Play, Pause, Paperclip, Download, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import axios from 'axios';
 
