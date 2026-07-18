@@ -1311,8 +1311,7 @@ const Communication = () => {
                             maxWidth: '75%'
                           }}
                         >
-                          {/* Payment messages should be slightly larger and more prominent */}
-                          <span style={{ fontSize: msg.type === 'payment' ? '1rem' : '0.95rem', fontWeight: msg.type === 'payment' ? 600 : 400, wordBreak: 'break-word', color: msg.type === 'payment' ? 'var(--text-main)' : 'inherit' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 400, wordBreak: 'break-word', color: 'inherit' }}>
                             {msg.text}
                           </span>
                           <span style={{ 
