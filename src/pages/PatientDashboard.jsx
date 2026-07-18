@@ -13,6 +13,23 @@ const PatientDashboard = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [currentTimeOfDay, setCurrentTimeOfDay] = useState('');
+
+  // Helper: returns the Date when the specified dose window starts (Morning=08:00, Afternoon=14:00, Night=21:00)
+  const getDoseStartTime = (timeOfDay) => {
+    const now = new Date();
+    const d = new Date(now);
+    if (timeOfDay === 'Morning') {
+      d.setHours(8, 0, 0, 0);
+    } else if (timeOfDay === 'Afternoon') {
+      d.setHours(14, 0, 0, 0);
+    } else if (timeOfDay === 'Night') {
+      if (now.getHours() < 21) {
+        d.setDate(d.getDate() - 1);
+      }
+      d.setHours(21, 0, 0, 0);
+    }
+    return d;
+  };
   
   // Payment processing is now centralized in /fees
 
@@ -35,22 +52,6 @@ const PatientDashboard = () => {
       } catch (error) {
         console.error("Failed to fetch prescriptions", error);
       }
-    };
-
-    const getDoseStartTime = (timeOfDay) => {
-      const now = new Date();
-      const d = new Date(now);
-      if (timeOfDay === 'Morning') {
-        d.setHours(8, 0, 0, 0);
-      } else if (timeOfDay === 'Afternoon') {
-        d.setHours(14, 0, 0, 0);
-      } else if (timeOfDay === 'Night') {
-        if (now.getHours() < 21) {
-          d.setDate(d.getDate() - 1);
-        }
-        d.setHours(21, 0, 0, 0);
-      }
-      return d;
     };
 
     const checkAndAutoMarkMissed = async (prescList) => {
