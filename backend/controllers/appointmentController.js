@@ -1,5 +1,7 @@
 const Appointment = require('../models/Appointment');
 const https = require('https');
+const Room = require('../models/Room');
+const User = require('../models/User');
 
 const verifyPaymentWithGateway = (paymentData) => {
   return new Promise((resolve, reject) => {
@@ -290,6 +292,36 @@ exports.payAppointmentFee = async (req, res) => {
     }
 
     await appointment.save();
+
+    // Notify doctor in the communication room about the received payment (non-blocking)
+    (async () => {
+      try {
+        const roomId = `room-${appointment._id}`;
+        let room = await Room.findOne({ roomId });
+        if (!room) {
+          room = await Room.create({ roomId, messages: [] });
+        }
+
+        const payer = await User.findById(req.user._id).select('name');
+        const payerName = payer?.name || 'Patient';
+        const transactionId = gateResult && gateResult.transactionId ? gateResult.transactionId : '';
+        const amountText = paymentAmount ? `₹${paymentAmount}` : `an amount`;
+        const text = transactionId
+          ? `Payment received ${amountText} from ${payerName} (Transaction: ${transactionId}).`
+          : `Payment received ${amountText} from ${payerName}.`;
+
+        room.messages.push({
+          senderId: req.user._id.toString(),
+          senderRole: req.user.role || 'Patient',
+          text,
+          seen: false
+        });
+
+        await room.save();
+      } catch (notifyErr) {
+        console.error('Failed to notify doctor about payment:', notifyErr);
+      }
+    })();
 
     res.json(appointment);
   } catch (error) {
