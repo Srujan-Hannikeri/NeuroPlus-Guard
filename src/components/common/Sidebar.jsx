@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import Logo from './Logo';
 import api from '../../services/api';
@@ -8,6 +8,7 @@ import { Home, FileText, MessageSquare, LogOut, Video, ChevronUp, ChevronDown, U
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [appointments, setAppointments] = useState([]);
 
@@ -164,6 +165,28 @@ const Sidebar = () => {
     { name: 'Profile', path: '/profile', icon: <User size={20} /> },
   ];
 
+  // When the route changes to appointments, mark them as viewed so badge clears immediately
+  useEffect(() => {
+    const path = location.pathname || '';
+    if (path.includes('appointments')) {
+      try {
+        if (appointments && appointments.length > 0) {
+          const maxTs = appointments.reduce((max, a) => {
+            const t = new Date(a.updatedAt || a.createdAt).getTime();
+            return Math.max(max, isNaN(t) ? 0 : t);
+          }, 0);
+          const stamp = maxTs > 0 ? new Date(maxTs).toISOString() : new Date().toISOString();
+          localStorage.setItem('lastViewedAppointments', stamp);
+        } else {
+          localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+        }
+      } catch (e) {
+        console.error('markViewed on route change error', e);
+        localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+      }
+    }
+  }, [location.pathname, appointments]);
+
   return (
     <div className="sidebar">
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
@@ -177,12 +200,35 @@ const Sidebar = () => {
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {navItems.map((item) => {
           const count = getBadgeCount(item.name);
-          return (
-            <NavLink 
-              key={item.name} 
-              to={item.path} 
-              className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
-            >
+            const isAppointmentsPath = item.path && item.path.includes('appointments');
+            const handleNavClick = () => {
+              // If user clicks Appointments in sidebar, mark appointments viewed immediately
+              if (isAppointmentsPath) {
+                try {
+                  if (appointments && appointments.length > 0) {
+                    const maxTs = appointments.reduce((max, a) => {
+                      const t = new Date(a.updatedAt || a.createdAt).getTime();
+                      return Math.max(max, isNaN(t) ? 0 : t);
+                    }, 0);
+                    const stamp = maxTs > 0 ? new Date(maxTs).toISOString() : new Date().toISOString();
+                    localStorage.setItem('lastViewedAppointments', stamp);
+                  } else {
+                    localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+                  }
+                } catch (e) {
+                  console.error('markViewed on click error', e);
+                  localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+                }
+              }
+            };
+
+            return (
+              <NavLink 
+                key={item.name} 
+                to={item.path} 
+                onClick={handleNavClick}
+                className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+              >
               <div style={{ position: 'relative', display: 'inline-flex' }}>
                 {item.icon}
                 {count > 0 && (
