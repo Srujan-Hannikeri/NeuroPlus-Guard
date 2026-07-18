@@ -36,7 +36,6 @@ const Fees = () => {
   useEffect(() => {
     const prevTime = localStorage.getItem('lastViewedFees') || 0;
     setLastViewedTime(prevTime);
-    localStorage.setItem('lastViewedFees', new Date().toISOString());
     fetchAppointments();
   }, []);
 
@@ -45,6 +44,25 @@ const Fees = () => {
       const { data } = await api.get('/appointments');
       // For doctors, we might want all, for patients we want only accepted/completed with fees
       setAppointments(data);
+
+      // If doctor is viewing the Fees page, mark the fees as viewed up to the latest paid fee timestamp
+      if (user?.role === 'Doctor') {
+        try {
+          const allFees = data.flatMap(appt => {
+            if (appt.feeHistory && appt.feeHistory.length > 0) return appt.feeHistory;
+            if (appt.feeAmount > 0) return [{ _id: 'legacy', amount: appt.feeAmount, amountPaid: appt.amountPaid || 0, status: appt.feeStatus, date: appt.updatedAt || appt.createdAt }];
+            return [];
+          });
+
+          const paidTimestamps = allFees.filter(f => f.status === 'Paid').map(f => new Date(f.date || f.updatedAt || f.createdAt || Date.now()).getTime());
+          const maxTs = paidTimestamps.length > 0 ? Math.max(...paidTimestamps) : Date.now();
+          const stamp = new Date(maxTs).toISOString();
+          localStorage.setItem('lastViewedFees', stamp);
+          setLastViewedTime(stamp);
+        } catch (e) {
+          console.error('Failed to mark fees viewed on fetch', e);
+        }
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -241,16 +259,14 @@ const Fees = () => {
                      {user?.role === 'Doctor' ? `Patient: ${appt.patient?.name}` : `Consultation with Dr. ${appt.doctor?.name}`}
                      {isNewPaymentForDoctor && (
                        <span style={{ 
-                         background: 'var(--error)', 
-                         color: '#fff', 
-                         padding: '2px 8px', 
-                         borderRadius: '12px', 
-                         fontSize: '0.7rem', 
-                         fontWeight: 'bold',
-                         boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
-                       }}>
-                         🔴 New Payment
-                       </span>
+                         display: 'inline-block',
+                         width: '10px',
+                         height: '10px',
+                         background: 'var(--error)',
+                         borderRadius: '50%',
+                         boxShadow: '0 0 6px rgba(239,68,68,0.45)',
+                         marginLeft: '6px'
+                       }} aria-hidden="true" />
                      )}
                    </h4>
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Date: {new Date(fee.date).toLocaleDateString()}</p>

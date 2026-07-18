@@ -114,6 +114,7 @@ const Layout = ({ children }) => {
         }
 
         // Check for upcoming accepted patient appointments in the next 15 mins (or started in last 1 hour)
+        // NOTE: Do not trigger notifications or actions for accepted appointments — only surface badges in Sidebar.
         if (user.role === 'Patient') {
           const now = Date.now();
           const upcoming = apptList.find(appt => {
@@ -121,29 +122,9 @@ const Layout = ({ children }) => {
             const scheduledTime = new Date(appt.scheduledAt).getTime();
             return (scheduledTime - now <= 15 * 60 * 1000) && (now - scheduledTime <= 60 * 60 * 1000);
           });
-          
+
+          // Keep upcomingAppointment state but do NOT create system notifications or play sounds here.
           setUpcomingAppointment(upcoming || null);
-          
-          if (upcoming) {
-            const notifiedKey = `notified-appt-${upcoming._id}`;
-            if (!localStorage.getItem(notifiedKey)) {
-              localStorage.setItem(notifiedKey, 'true');
-              
-              if (Notification.permission === 'granted') {
-                new Notification("Upcoming Appointment Reminder", {
-                  body: `Your appointment with Dr. ${upcoming.doctor?.name || 'Doctor'} is scheduled for ${new Date(upcoming.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-                });
-              } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission().then(permission => {
-                  if (permission === 'granted') {
-                    new Notification("Upcoming Appointment Reminder", {
-                      body: `Your appointment with Dr. ${upcoming.doctor?.name || 'Doctor'} is scheduled for ${new Date(upcoming.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-                    });
-                  }
-                });
-              }
-            }
-          }
         } else if (user.role === 'Doctor') {
           const lastViewedFees = localStorage.getItem('lastViewedFees') || 0;
           apptList.forEach(appt => {

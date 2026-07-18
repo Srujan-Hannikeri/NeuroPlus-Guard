@@ -74,16 +74,23 @@ const Sidebar = () => {
           console.error("Sidebar reports polling error", e);
         }
 
-        // 5. Calculate unseen fees
+        // 5. Calculate unseen fees (based on feeHistory or legacy fee entries marked Paid)
         let newFeesCount = 0;
         try {
           const lastViewedFees = localStorage.getItem('lastViewedFees') || 0;
           apptList.forEach(appt => {
-            if (appt.feeAmount > 0 && appt.feeStatus !== 'Paid') {
-              if (new Date(appt.updatedAt || appt.createdAt).getTime() > new Date(lastViewedFees).getTime()) {
-                newFeesCount += 1;
+            const feesToCheck = appt.feeHistory && appt.feeHistory.length > 0
+              ? appt.feeHistory
+              : (appt.feeAmount > 0 ? [{ _id: 'legacy', amount: appt.feeAmount, amountPaid: appt.amountPaid || 0, status: appt.feeStatus, date: appt.updatedAt || appt.createdAt }] : []);
+
+            feesToCheck.forEach(fee => {
+              if (fee.status === 'Paid') {
+                const payTime = new Date(fee.date || appt.updatedAt || appt.createdAt).getTime();
+                if (payTime > new Date(lastViewedFees).getTime()) {
+                  newFeesCount += 1;
+                }
               }
-            }
+            });
           });
         } catch(e) {
           console.error("Sidebar fees calculation error", e);
@@ -201,6 +208,7 @@ const Sidebar = () => {
         {navItems.map((item) => {
           const count = getBadgeCount(item.name);
             const isAppointmentsPath = item.path && item.path.includes('appointments');
+            const isFeesPath = item.path && item.path.includes('/fees');
             const handleNavClick = () => {
               // If user clicks Appointments in sidebar, mark appointments viewed immediately
               if (isAppointmentsPath) {
@@ -218,6 +226,29 @@ const Sidebar = () => {
                 } catch (e) {
                   console.error('markViewed on click error', e);
                   localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+                }
+              }
+
+              // If user clicks Fees in sidebar, mark fees as viewed up to the latest paid fee timestamp
+              if (isFeesPath) {
+                try {
+                  if (appointments && appointments.length > 0) {
+                    // compute latest paid fee timestamp across appointments
+                    const allFees = appointments.flatMap(appt => {
+                      if (appt.feeHistory && appt.feeHistory.length > 0) return appt.feeHistory;
+                      if (appt.feeAmount > 0) return [{ _id: 'legacy', amount: appt.feeAmount, amountPaid: appt.amountPaid || 0, status: appt.feeStatus, date: appt.updatedAt || appt.createdAt }];
+                      return [];
+                    });
+                    const paidTimestamps = allFees.filter(f => f.status === 'Paid').map(f => new Date(f.date || f.updatedAt || f.createdAt || Date.now()).getTime());
+                    const maxTs = paidTimestamps.length > 0 ? Math.max(...paidTimestamps) : Date.now();
+                    const stamp = new Date(maxTs).toISOString();
+                    localStorage.setItem('lastViewedFees', stamp);
+                  } else {
+                    localStorage.setItem('lastViewedFees', new Date().toISOString());
+                  }
+                } catch (e) {
+                  console.error('markViewed fees on click error', e);
+                  localStorage.setItem('lastViewedFees', new Date().toISOString());
                 }
               }
             };
