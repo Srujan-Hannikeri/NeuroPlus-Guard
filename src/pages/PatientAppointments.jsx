@@ -26,11 +26,29 @@ const PatientAppointments = () => {
 
   // Fetch patient‑specific appointments
   useEffect(() => {
-    localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+    const markViewed = (list) => {
+      try {
+        if (!Array.isArray(list) || list.length === 0) {
+          localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+          return;
+        }
+        const maxTs = list.reduce((max, a) => {
+          const t = new Date(a.updatedAt || a.createdAt).getTime();
+          return Math.max(max, isNaN(t) ? 0 : t);
+        }, 0);
+        const stamp = maxTs > 0 ? new Date(maxTs).toISOString() : new Date().toISOString();
+        localStorage.setItem('lastViewedAppointments', stamp);
+      } catch (e) {
+        console.error('markViewed error', e);
+        localStorage.setItem('lastViewedAppointments', new Date().toISOString());
+      }
+    };
+
     const fetch = async () => {
       try {
         const { data } = await api.get('/appointments');
         setAppointments(data);
+        markViewed(data);
       } catch (e) {
         console.error(e);
       } finally {
