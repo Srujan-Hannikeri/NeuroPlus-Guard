@@ -80,25 +80,6 @@ const Fees = () => {
       const { data } = await api.get('/appointments');
       // For doctors, we might want all, for patients we want only accepted/completed with fees
       setAppointments(data);
-
-      // If doctor is viewing the Fees page, mark the fees as viewed up to the latest paid fee timestamp
-      if (user?.role === 'Doctor') {
-        try {
-          const allFees = data.flatMap(appt => {
-            if (appt.feeHistory && appt.feeHistory.length > 0) return appt.feeHistory;
-            if (appt.feeAmount > 0) return [{ _id: 'legacy', amount: appt.feeAmount, amountPaid: appt.amountPaid || 0, status: appt.feeStatus, date: appt.updatedAt || appt.createdAt }];
-            return [];
-          });
-
-          const paidTimestamps = allFees.filter(f => f.status === 'Paid').map(f => new Date(f.date || f.updatedAt || f.createdAt || Date.now()).getTime());
-          const maxTs = paidTimestamps.length > 0 ? Math.max(...paidTimestamps) : Date.now();
-          const stamp = new Date(maxTs).toISOString();
-          localStorage.setItem('lastViewedFees', stamp);
-          setLastViewedTime(stamp);
-        } catch (e) {
-          console.error('Failed to mark fees viewed on fetch', e);
-        }
-      }
     } catch (error) {
       console.error(error);
     } finally {
