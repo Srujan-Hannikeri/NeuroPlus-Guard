@@ -48,12 +48,14 @@ router.get('/:roomId', protect, async (req, res) => {
     } else if (req.query.markAsSeen === 'true') {
       let updated = false;
       room.messages.forEach(msg => {
-        if (msg.senderId !== req.user._id.toString() && !msg.seen) {
+        const senderStr = msg.senderId ? msg.senderId.toString() : '';
+        if (senderStr !== req.user._id.toString() && !msg.seen) {
           msg.seen = true;
           updated = true;
         }
       });
       if (updated) {
+        room.markModified('messages');
         await room.save();
       }
     }
