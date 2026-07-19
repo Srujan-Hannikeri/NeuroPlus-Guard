@@ -309,7 +309,7 @@ const Communication = () => {
           const appt = apptList.find(a => `room-${a._id}` === data.roomId);
           if (!appt) return;
           
-          counts[data.roomId] = data.messages?.filter(msg => msg.senderId !== user?._id && !msg.seen).length || 0;
+          counts[data.roomId] = data.messages?.filter(msg => msg.senderId !== user?._id && msg.type !== 'payment' && !msg.seen).length || 0;
           if (data.messages && data.messages.length > 0) {
             lastMsgs[data.roomId] = data.messages[data.messages.length - 1];
           }
@@ -1299,32 +1299,44 @@ const Communication = () => {
                   ) : (
                     messages.map((msg, idx) => {
                       const isMe = msg.senderId === user._id;
+                      const isPayment = msg.type === 'payment';
                       return (
                         <div 
                           key={idx} 
-                          className={`chat-message ${isMe ? 'me' : 'other'}`}
+                          className={isPayment ? "chat-message-payment" : `chat-message ${isMe ? 'me' : 'other'}`}
                           style={{
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '4px',
                             position: 'relative',
-                            maxWidth: '75%'
+                            maxWidth: isPayment ? '85%' : '75%',
+                            ...(isPayment ? {
+                              background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+                              color: '#14532d',
+                              border: '1.5px solid #86efac',
+                              borderRadius: '12px',
+                              padding: '12px 16px',
+                              boxShadow: '0 4px 12px rgba(22, 163, 74, 0.08)',
+                              alignSelf: 'center',
+                              textAlign: 'center',
+                              margin: '12px auto',
+                            } : {})
                           }}
                         >
-                          <span style={{ fontSize: '0.95rem', fontWeight: 400, wordBreak: 'break-word', color: 'inherit' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: isPayment ? '600' : 400, wordBreak: 'break-word', color: 'inherit' }}>
                             {msg.text}
                           </span>
                           <span style={{ 
                             fontSize: '0.72rem', 
-                            color: isMe ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)', 
-                            alignSelf: 'flex-end',
+                            color: isPayment ? '#166534' : (isMe ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)'), 
+                            alignSelf: isPayment ? 'center' : 'flex-end',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
                             marginTop: '2px'
                           }}>
                             {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : ''}
-                            {isMe && (() => {
+                            {!isPayment && isMe && (() => {
                               const recipientId = user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id;
                               const isCounterpartOnline = isContactOnline(recipientId);
                               

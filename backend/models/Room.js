@@ -1,26 +1,29 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema({
   senderId: String,
   senderRole: String,
   text: String,
-  type: { type: String, default: 'chat' }, // e.g., 'chat', 'payment', 'system'
+  type: { type: String, default: "chat" }, // e.g., 'chat', 'payment', 'system'
   meta: mongoose.Schema.Types.Mixed,
   seen: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 const iceCandidateSchema = new mongoose.Schema({
   senderId: String,
-  candidate: mongoose.Schema.Types.Mixed
+  candidate: mongoose.Schema.Types.Mixed,
 });
 
-const roomSchema = new mongoose.Schema({
-  roomId: { type: String, required: true, unique: true },
-  offer: mongoose.Schema.Types.Mixed,
-  answer: mongoose.Schema.Types.Mixed,
-  iceCandidates: [iceCandidateSchema],
-  messages: [messageSchema]
-}, { timestamps: true });
+const roomSchema = new mongoose.Schema(
+  {
+    roomId: { type: String, required: true, unique: true },
+    offer: mongoose.Schema.Types.Mixed,
+    answer: mongoose.Schema.Types.Mixed,
+    iceCandidates: [iceCandidateSchema],
+    messages: [messageSchema],
+  },
+  { timestamps: true },
+);
 
-module.exports = mongoose.model('Room', roomSchema);
+module.exports = mongoose.model("Room", roomSchema);

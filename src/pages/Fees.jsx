@@ -31,13 +31,49 @@ const Fees = () => {
   const [upiId, setUpiId] = useState('');
   const [selectedBank, setSelectedBank] = useState('');
 
-  const [lastViewedTime, setLastViewedTime] = useState(null);
+  const [seenPayments, setSeenPayments] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seenPayments');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
   useEffect(() => {
-    const prevTime = localStorage.getItem('lastViewedFees') || 0;
-    setLastViewedTime(prevTime);
     fetchAppointments();
   }, []);
+
+  const markFeeAsSeen = (feeId) => {
+    const updated = [...seenPayments, feeId];
+    setSeenPayments(updated);
+    localStorage.setItem('seenPayments', JSON.stringify(updated));
+    window.dispatchEvent(new Event('fees-updated'));
+  };
+
+  const markAllFeesAsSeen = () => {
+    const allIds = [];
+    appointments.forEach(appt => {
+      const fees = appt.feeHistory && appt.feeHistory.length > 0
+        ? appt.feeHistory
+        : (appt.feeAmount > 0 ? [{ _id: 'legacy' }] : []);
+      fees.forEach(fee => {
+        const feeId = fee._id === 'legacy' ? appt._id : fee._id;
+        allIds.push(feeId);
+      });
+    });
+    const updated = Array.from(new Set([...seenPayments, ...allIds]));
+    setSeenPayments(updated);
+    localStorage.setItem('seenPayments', JSON.stringify(updated));
+    window.dispatchEvent(new Event('fees-updated'));
+  };
+
+  const hasUnseenFees = user?.role === 'Doctor' && appointments.some(appt => {
+    const fees = appt.feeHistory && appt.feeHistory.length > 0
+      ? appt.feeHistory
+      : (appt.feeAmount > 0 ? [{ _id: 'legacy', status: appt.feeStatus }] : []);
+    return fees.some(fee => fee.status === 'Paid' && !seenPayments.includes(fee._id === 'legacy' ? appt._id : fee._id));
+  });
 
   const fetchAppointments = async () => {
     try {
@@ -216,7 +252,26 @@ const Fees = () => {
 
       <div className="glass-panel" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <h3 style={{ color: 'var(--secondary)', margin: 0 }}>Fee History</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <h3 style={{ color: 'var(--secondary)', margin: 0 }}>Fee History</h3>
+            {hasUnseenFees && (
+              <button 
+                onClick={markAllFeesAsSeen}
+                style={{
+                  background: 'rgba(15, 130, 135, 0.1)',
+                  color: 'var(--primary)',
+                  border: '1.5px solid var(--primary)',
+                  padding: '4px 12px',
+                  borderRadius: '16px',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Mark All as Seen
+              </button>
+            )}
+          </div>
           {user?.role === 'Doctor' && (
             <input 
               type="text" 
@@ -248,26 +303,39 @@ const Fees = () => {
                  const uniqueKey = fee._id === 'legacy' ? appt._id : fee._id;
                  const pendingBal = fee.amount - (fee.amountPaid || 0);
                  
-                 const isNewPaymentForDoctor = user?.role === 'Doctor' && 
-                   fee.status === 'Paid' && 
-                   new Date(fee.date || appt.updatedAt).getTime() > new Date(lastViewedTime || 0).getTime();
+                  const isNewPaymentForDoctor = user?.role === 'Doctor' && 
+                    fee.status === 'Paid' && 
+                    !seenPayments.includes(uniqueKey);
                  
                  return (
                <div key={`${appt._id}-${uniqueKey}-${index}`} style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                  <div>
                    <h4 style={{ color: 'var(--text-main)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                      {user?.role === 'Doctor' ? `Patient: ${appt.patient?.name}` : `Consultation with Dr. ${appt.doctor?.name}`}
-                     {isNewPaymentForDoctor && (
-                       <span style={{ 
-                         display: 'inline-block',
-                         width: '10px',
-                         height: '10px',
-                         background: 'var(--error)',
-                         borderRadius: '50%',
-                         boxShadow: '0 0 6px rgba(239,68,68,0.45)',
-                         marginLeft: '6px'
-                       }} aria-hidden="true" />
-                     )}
+                      {isNewPaymentForDoctor && (
+                        <>
+                          <span style={{ 
+                            display: 'inline-block',
+                            width: '10px',
+                            height: '10px',
+                            background: 'var(--error)',
+                            borderRadius: '50%',
+                            boxShadow: '0 0 8px rgba(239,68,68,0.6)',
+                            marginLeft: '6px'
+                          }} aria-hidden="true" />
+                          <span style={{
+                            background: '#fee2e2',
+                            color: '#ef4444',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.7rem',
+                            fontWeight: 'bold',
+                            marginLeft: '6px'
+                          }}>
+                            New
+                          </span>
+                        </>
+                      )}
                    </h4>
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Date: {new Date(fee.date).toLocaleDateString()}</p>
                   <p style={{ fontSize: '1.1rem', color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px' }}>
@@ -302,6 +370,28 @@ const Fees = () => {
                       <button onClick={() => handlePayFee(appt._id, fee._id === 'legacy' ? null : fee._id, pendingBal)} className="btn-primary" style={{ padding: '6px 16px', fontSize: '0.8rem' }}>Pay</button>
                     </div>
                   </div>
+                )}
+                {user?.role === 'Doctor' && isNewPaymentForDoctor && (
+                  <button 
+                    onClick={() => markFeeAsSeen(uniqueKey)}
+                    style={{
+                      background: 'var(--primary)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(15, 130, 135, 0.15)',
+                      transition: 'all 0.2s ease',
+                      marginLeft: 'auto'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--secondary)'}
+                    onMouseOut={(e) => e.currentTarget.style.background = 'var(--primary)'}
+                  >
+                    ✓ Mark as Seen
+                  </button>
                 )}
               </div>
             )})}

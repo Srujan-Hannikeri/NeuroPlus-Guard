@@ -27,24 +27,31 @@ const Sidebar = () => {
 
     const fetchBadges = async () => {
       try {
-        // 1. Fetch appointments (for consultations and fees)
-        const appointmentsRes = await api.get('/appointments');
-        const apptList = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
+        // Run appointments, prescriptions, and reports fetches in parallel to make it much faster!
+        const [appointmentsRes, prescriptionsRes, reportsRes] = await Promise.all([
+          api.get('/appointments').catch(() => ({ data: [] })),
+          api.get('/prescriptions').catch(() => ({ data: [] })),
+          api.get('/reports').catch(() => ({ data: [] }))
+        ]);
+
         if (!isMounted) return;
+
+        const apptList = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
         setAppointments(apptList);
 
-        // compute all counts locally and update state once to avoid race conditions
+        // compute all counts locally
         const lastViewedAppts = localStorage.getItem('lastViewedAppointments') || 0;
         const unseenCount = apptList.filter(a => new Date(a.updatedAt || a.createdAt).getTime() > new Date(lastViewedAppts).getTime()).length;
 
-        // 2. Fetch room summaries
+        // 2. Fetch room summaries in parallel if there are appointments
         let unreadChatCount = 0;
         if (apptList.length > 0) {
           const roomIds = apptList.map(appt => `room-${appt._id}`);
           try {
             const { data: rooms } = await api.post('/communication/summary', { roomIds });
             (rooms || []).forEach(room => {
-              unreadChatCount += (room.messages?.filter(msg => msg.senderId !== user._id && !msg.seen).length) || 0;
+              // EXCLUDE payment confirmation type messages from counting towards the communication unread chat badge
+              unreadChatCount += (room.messages?.filter(msg => msg.senderId !== user._id && msg.type !== 'payment' && !msg.seen).length) || 0;
               if (room.offer && !room.answer && room.offer.senderId !== user._id) {
                 unreadChatCount += 1;
               }
@@ -54,30 +61,19 @@ const Sidebar = () => {
           }
         }
 
-        // 3. Fetch prescriptions
-        let newPrescCount = 0;
-        try {
-          const { data: prescriptions } = await api.get('/prescriptions');
-          const lastViewedPresc = localStorage.getItem('lastViewedPrescriptions') || 0;
-          newPrescCount = (prescriptions || []).filter(p => new Date(p.createdAt).getTime() > new Date(lastViewedPresc).getTime()).length;
-        } catch (e) {
-          console.error("Sidebar prescriptions polling error", e);
-        }
+        // 3. Fetch prescriptions count
+        const lastViewedPresc = localStorage.getItem('lastViewedPrescriptions') || 0;
+        const newPrescCount = (prescriptionsRes.data || []).filter(p => new Date(p.createdAt).getTime() > new Date(lastViewedPresc).getTime()).length;
 
-        // 4. Fetch reports
-        let newRepsCount = 0;
-        try {
-          const { data: reports } = await api.get('/reports');
-          const lastViewedReps = localStorage.getItem('lastViewedReports') || 0;
-          newRepsCount = (reports || []).filter(r => new Date(r.createdAt).getTime() > new Date(lastViewedReps).getTime()).length;
-        } catch (e) {
-          console.error("Sidebar reports polling error", e);
-        }
+        // 4. Fetch reports count
+        const lastViewedReps = localStorage.getItem('lastViewedReports') || 0;
+        const newRepsCount = (reportsRes.data || []).filter(r => new Date(r.createdAt).getTime() > new Date(lastViewedReps).getTime()).length;
 
-        // 5. Calculate unseen fees (based on feeHistory or legacy fee entries marked Paid)
+        // 5. Calculate unseen fees based on seenPayments array
         let newFeesCount = 0;
         try {
-          const lastViewedFees = localStorage.getItem('lastViewedFees') || 0;
+          const seenPaymentsRaw = localStorage.getItem('seenPayments');
+          const seenPayments = seenPaymentsRaw ? JSON.parse(seenPaymentsRaw) : [];
           apptList.forEach(appt => {
             const feesToCheck = appt.feeHistory && appt.feeHistory.length > 0
               ? appt.feeHistory
@@ -85,8 +81,8 @@ const Sidebar = () => {
 
             feesToCheck.forEach(fee => {
               if (fee.status === 'Paid') {
-                const payTime = new Date(fee.date || appt.updatedAt || appt.createdAt).getTime();
-                if (payTime > new Date(lastViewedFees).getTime()) {
+                const feeId = fee._id === 'legacy' ? appt._id : fee._id;
+                if (!seenPayments.includes(feeId)) {
                   newFeesCount += 1;
                 }
               }
@@ -97,14 +93,13 @@ const Sidebar = () => {
         }
 
         if (isMounted) {
-          setBadges(prev => ({
-            ...prev,
-            appointments: typeof unseenCount === 'number' ? unseenCount : prev.appointments,
-            consultation: typeof unreadChatCount === 'number' ? unreadChatCount : prev.consultation,
-            prescriptions: typeof newPrescCount === 'number' ? newPrescCount : prev.prescriptions,
-            reports: typeof newRepsCount === 'number' ? newRepsCount : prev.reports,
-            fees: typeof newFeesCount === 'number' ? newFeesCount : prev.fees,
-          }));
+          setBadges({
+            appointments: unseenCount,
+            consultation: unreadChatCount,
+            prescriptions: newPrescCount,
+            reports: newRepsCount,
+            fees: newFeesCount,
+          });
         }
       } catch (err) {
         console.error("Error fetching badges in sidebar:", err);
@@ -112,13 +107,23 @@ const Sidebar = () => {
     };
 
     fetchBadges();
-    const interval = setInterval(fetchBadges, 25000);
+    
+    // Poll every 12 seconds for fast but lightweight updates
+    const interval = setInterval(fetchBadges, 12000);
 
+    const handleFeesUpdate = () => {
+      fetchBadges();
+    };
+
+    // Listen to live fees-updated events to immediately sync badge count without waiting for poller
+    window.addEventListener('fees-updated', handleFeesUpdate);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('fees-updated', handleFeesUpdate);
     };
   }, [user]);
+
 
   const getBadgeCount = (name) => {
     if (name.includes('Consultation') || name.includes('Video') || name === 'Video Call' || name === 'Consultations') {

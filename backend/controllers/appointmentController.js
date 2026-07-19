@@ -293,8 +293,24 @@ exports.payAppointmentFee = async (req, res) => {
 
     await appointment.save();
 
-    // Payment-to-communication-room notification removed per user request.
-    // (Previous behavior appended a 'payment' message into the Room for this appointment; that was removed to avoid payments appearing inside the consultation chat.)
+    // Append a message of type 'payment' to the communication room so the doctor receives a message
+    try {
+      let room = await Room.findOne({ roomId: `room-${appointment._id}` });
+      if (!room) {
+        room = new Room({ roomId: `room-${appointment._id}` });
+      }
+      room.messages.push({
+        senderId: req.user._id,
+        senderRole: req.user.role,
+        text: `💳 Payment of ₹${paymentAmount} completed successfully via ${paymentMethod || 'bank transfer'}.`,
+        type: 'payment',
+        seen: false,
+        createdAt: new Date()
+      });
+      await room.save();
+    } catch (e) {
+      console.error("Error creating payment message in room:", e);
+    }
 
     res.json(appointment);
   } catch (error) {
