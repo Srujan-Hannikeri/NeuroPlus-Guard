@@ -53,7 +53,10 @@ const Sidebar = () => {
               // EXCLUDE payment confirmation type messages from counting towards the communication unread chat badge
               unreadChatCount += (room.messages?.filter(msg => msg.senderId !== user._id && msg.type !== 'payment' && !msg.seen).length) || 0;
               if (room.offer && !room.answer && room.offer.senderId !== user._id) {
-                unreadChatCount += 1;
+                const age = Date.now() - new Date(room.updatedAt).getTime();
+                if (age < 45000) {
+                  unreadChatCount += 1;
+                }
               }
             });
           } catch (e) {

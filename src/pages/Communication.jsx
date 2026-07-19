@@ -233,7 +233,12 @@ const Communication = () => {
         }
         // Sync active offer state
         if (data.offer && !data.answer) {
-          setActiveOffer(data.offer);
+          const age = Date.now() - new Date(data.updatedAt).getTime();
+          if (age < 45000) {
+            setActiveOffer(data.offer);
+          } else {
+            setActiveOffer(null);
+          }
         } else {
           setActiveOffer(null);
         }
@@ -315,11 +320,14 @@ const Communication = () => {
           }
 
           if (data.offer && !data.answer && data.offer.senderId !== user?._id) {
-            activeCallIncoming = {
-              appointment: appt,
-              roomId: data.roomId,
-              offer: data.offer
-            };
+            const age = Date.now() - new Date(data.updatedAt).getTime();
+            if (age < 45000) {
+              activeCallIncoming = {
+                appointment: appt,
+                roomId: data.roomId,
+                offer: data.offer
+              };
+            }
           }
         });
       } catch (e) {
@@ -686,6 +694,14 @@ const Communication = () => {
       clearInterval(pollingInterval.current);
     }
     
+    // If we initiated the call and no remote stream was established, log it as a missed call
+    if (isInitiator && !remoteStream && roomId) {
+      api.post(`/communication/${roomId}/message`, {
+        text: `📞 Missed ${isAudioCall ? 'voice' : 'video'} call`,
+        type: 'missed_call'
+      }).catch(err => console.error("Failed to log missed call", err));
+    }
+
     // 5. Clear call signaling state in MongoDB backend so counterpart's polling detects disconnection
     if (roomId) {
       api.post(`/communication/${roomId}/signal`, { clearSignal: true }).catch(err => {
@@ -1300,16 +1316,18 @@ const Communication = () => {
                     messages.map((msg, idx) => {
                       const isMe = msg.senderId === user._id;
                       const isPayment = msg.type === 'payment';
+                      const isMissedCall = msg.type === 'missed_call';
+                      const isSpecial = isPayment || isMissedCall;
                       return (
                         <div 
                           key={idx} 
-                          className={isPayment ? "chat-message-payment" : `chat-message ${isMe ? 'me' : 'other'}`}
+                          className={isSpecial ? `chat-message-${msg.type}` : `chat-message ${isMe ? 'me' : 'other'}`}
                           style={{
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '4px',
                             position: 'relative',
-                            maxWidth: isPayment ? '85%' : '75%',
+                            maxWidth: isSpecial ? '85%' : '75%',
                             ...(isPayment ? {
                               background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
                               color: '#14532d',
@@ -1320,23 +1338,33 @@ const Communication = () => {
                               alignSelf: 'center',
                               textAlign: 'center',
                               margin: '12px auto',
+                            } : isMissedCall ? {
+                              background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                              color: '#991b1b',
+                              border: '1.5px solid #fca5a5',
+                              borderRadius: '12px',
+                              padding: '12px 16px',
+                              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.08)',
+                              alignSelf: 'center',
+                              textAlign: 'center',
+                              margin: '12px auto',
                             } : {})
                           }}
                         >
-                          <span style={{ fontSize: '0.95rem', fontWeight: isPayment ? '600' : 400, wordBreak: 'break-word', color: 'inherit' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: isSpecial ? '600' : 400, wordBreak: 'break-word', color: 'inherit' }}>
                             {msg.text}
                           </span>
                           <span style={{ 
                             fontSize: '0.72rem', 
-                            color: isPayment ? '#166534' : (isMe ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)'), 
-                            alignSelf: isPayment ? 'center' : 'flex-end',
+                            color: isPayment ? '#166534' : isMissedCall ? '#b91c1c' : (isMe ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)'), 
+                            alignSelf: isSpecial ? 'center' : 'flex-end',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
                             marginTop: '2px'
                           }}>
                             {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : ''}
-                            {!isPayment && isMe && (() => {
+                            {!isSpecial && isMe && (() => {
                               const recipientId = user?.role === 'Doctor' ? selectedContact.patient?._id : selectedContact.doctor?._id;
                               const isCounterpartOnline = isContactOnline(recipientId);
                               
