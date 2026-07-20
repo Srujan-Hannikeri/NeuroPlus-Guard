@@ -1,20 +1,20 @@
 # NeuroPlus Guard - Comprehensive Project & Interview Guide
 
-This guide is designed to prepare you for interviews regarding the **NeuroPlus Guard** web application. It includes a detailed overview of all functions, architecture, database schemas, and engineering choices.
+This guide is designed to prepare you for interviews regarding the **NeuroPlus Guard** web application. It includes a detailed overview of all functions, architecture, database schemas, and actual production code snippets.
 
 ---
 
 ## 1. Project Overview & Objective
-**NeuroPlus Guard** is a premium, real-time healthcare consulting and monitoring portal designed for neurological and general patient care. It enables patients to book appointments, consult with doctors via real-time video/audio calling, receive automated medication slot reminders, track prescription records, and submit secure consultation payments. For doctors, it provides dashboards to manage appointments, issue prescriptions, view medical reports, and track earnings with interactive indicators for unseen payments.
+**NeuroPlus Guard** is a real-time healthcare consulting portal designed for neurological and general patient care. It enables patients to book appointments, consult with doctors via real-time video/audio calling, receive automated medication slot reminders, track prescription records, and submit secure consultation payments. For doctors, it provides dashboards to manage appointments, issue prescriptions, view medical reports, and track earnings with interactive indicators for unseen payments.
 
 ---
 
 ## 2. Technical Stack
 ### Frontend
-*   **Core**: React (v19) with Vite (v8) as the build tool (fast HMR and compilation).
-*   **Styling**: Vanilla CSS for maximum customizability, responsive layouts, glassmorphism designs, and smooth micro-animations.
+*   **Core**: React (v19) with Vite (v8) as the build tool.
+*   **Styling**: Vanilla CSS for glassmorphism designs and smooth micro-animations.
 *   **Routing**: React Router DOM (v7) for nested layout routes and role-based redirects.
-*   **Icons**: Lucide React for consistent, lightweight vector iconography.
+*   **Icons**: Lucide React.
 
 ### Backend
 *   **Runtime**: Node.js with Express.js server frameworks.
@@ -24,36 +24,186 @@ This guide is designed to prepare you for interviews regarding the **NeuroPlus G
 
 ---
 
-## 3. Core Features & Functions
-### 1. Doctor & Patient Dashboards
-*   **Patient Dashboard**: Offers search filters to browse doctors, shortcuts to book appointments, current medication reminders based on time-of-day, and one-click consult button.
-*   **Doctor Dashboard**: Shows active patients, today's schedule checklist, completed consultation stats, and unread notification alerts.
+## 3. Core Production Code Snippets
 
-### 2. AI Symptom Checker (`/ai-chatbot`)
-*   Provides patients with preliminary diagnostic checklists using the Gemini API.
-*   Allows patients to type symptoms and upload photos/reports. The AI analyzes inputs and returns recommendations (Disclaimer: Not a substitute for formal diagnosis).
+### 1. Parallel Badge Loading with `Promise.all` (`src/components/common/Sidebar.jsx`)
+To make badge updates twice as fast and reduce sequential HTTP overhead, the sidebar requests appointments, prescriptions, and reports in parallel:
+```javascript
+const fetchBadges = async () => {
+  try {
+    // Run appointments, prescriptions, and reports fetches in parallel to make it much faster!
+    const [appointmentsRes, prescriptionsRes, reportsRes] = await Promise.all([
+      api.get('/appointments').catch(() => ({ data: [] })),
+      api.get('/prescriptions').catch(() => ({ data: [] })),
+      api.get('/reports').catch(() => ({ data: [] }))
+    ]);
 
-### 3. Consultation & Chat Room (`/consultation`)
-*   **Real-time Chat**: Fully features text messaging, image sharing, and read receipts (`✓` and `✓✓`).
-*   **Voice & Video WebRTC Calls**: Bypasses layout selection to join instantly. Features elevated desktop PiP containers, responsive controls, native full-screen support, and native browser escapes.
-*   **Missed Call Tracker**: Logs missed calls as centered red banners in the chat log, which automatically trigger sidebar badges for the callee.
-*   **Payment Receipts**: Centered green gradient receipts are rendered directly in the chat to confirm successful payments.
+    if (!isMounted) return;
 
-### 4. Prescription Management (`/prescriptions`)
-*   Doctors can schedule prescriptions with specific slots (Morning, Afternoon, Night) and dosages.
-*   **4-Hour Update Limit**: Patients are only allowed to modify or mark a medication slot as taken within **4 hours** of its scheduled slot. If they miss the window, the slot is automatically marked as **Missed**.
+    const apptList = Array.isArray(appointmentsRes.data) ? appointmentsRes.data : [];
+    setAppointments(apptList);
 
-### 5. Consultation Fees & Payment Portal (`/fees`)
-*   **Mock Payment Checkout**: Patients select a payment method (Card, UPI, Netbanking) and input mock info. No OTP verification is requested.
-*   **Doctor Earnings Ledger**: Shows daily and overall earnings.
-*   **Interactive Seen Indicators**: Paid cards feature a pulsing red dot and a `New` tag for the doctor. Doctors can dismiss them using a `✓ Mark as Seen` button or clear them all at once using the `Mark All as Seen` button.
+    // compute all counts locally
+    const lastViewedAppts = localStorage.getItem('lastViewedAppointments') || 0;
+    const unseenCount = apptList.filter(a => new Date(a.updatedAt || a.createdAt).getTime() > new Date(lastViewedAppts).getTime()).length;
 
-### 6. Medical Reports (`/reports`)
-*   Patients can upload medical records (PDFs/Images). Doctors can access and review patient report files securely.
+    // 2. Fetch room summaries in parallel if there are appointments
+    let unreadChatCount = 0;
+    if (apptList.length > 0) {
+      const roomIds = apptList.map(appt => `room-${appt._id}`);
+      try {
+        const { data: rooms } = await api.post('/communication/summary', { roomIds });
+        (rooms || []).forEach(room => {
+          // EXCLUDE payment confirmation type messages from counting towards the communication unread chat badge
+          unreadChatCount += (room.messages?.filter(msg => msg.senderId !== user._id && msg.type !== 'payment' && !msg.seen).length) || 0;
+        });
+      } catch (e) {
+        console.error("Sidebar summary polling error", e);
+      }
+    }
+    // ... setting badges state ...
+  } catch (err) {
+    console.error("Error fetching badges in sidebar:", err);
+  }
+};
+```
 
-### 7. Global Live Clock & Heartbeat
-*   Every authenticated page displays a synchronized date and time clock on the right side of the navbar.
-*   Users ping a global online heartbeat every 20 seconds, allowing the website to show accurate **Online** / **Offline** states.
+### 2. Auto-Appending Payment Messages (`backend/controllers/appointmentController.js`)
+When a patient completes a payment, the backend appends a message of `type: 'payment'` to the communication room to alert the doctor:
+```javascript
+exports.payAppointmentFee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, feeId, paymentMethod, paymentDetails } = req.body;
+    
+    // ... Verify payment and update appointment feeStatus ...
+    await appointment.save();
+
+    // Append a message of type 'payment' to the communication room so the doctor receives a message
+    try {
+      let room = await Room.findOne({ roomId: `room-${appointment._id}` });
+      if (!room) {
+        room = new Room({ roomId: `room-${appointment._id}` });
+      }
+      room.messages.push({
+        senderId: req.user._id,
+        senderRole: req.user.role,
+        text: `💳 Payment of ₹${paymentAmount} completed successfully via ${paymentMethod || 'bank transfer'}.`,
+        type: 'payment',
+        seen: false,
+        createdAt: new Date()
+      });
+      await room.save();
+    } catch (e) {
+      console.error("Error creating payment message in room:", e);
+    }
+
+    res.json(appointment);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+```
+
+### 3. Real-Time Chat Message Seen Updates (`backend/routes/communicationRoutes.js`)
+Updates inner array fields in MongoDB. Mongoose requires `room.markModified('messages')` to recognize elements edited within document arrays:
+```javascript
+router.get('/:roomId', protect, async (req, res) => {
+  try {
+    let room = await Room.findOne({ roomId: req.params.roomId });
+    if (!room) {
+      room = await Room.create({ roomId: req.params.roomId });
+    } else if (req.query.markAsSeen === 'true') {
+      let updated = false;
+      room.messages.forEach(msg => {
+        const senderStr = msg.senderId ? msg.senderId.toString() : '';
+        if (senderStr !== req.user._id.toString() && !msg.seen) {
+          msg.seen = true;
+          updated = true;
+        }
+      });
+      if (updated) {
+        room.markModified('messages'); // Persists inner field modifications
+        await room.save();
+      }
+    }
+    res.json(room);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+```
+
+### 4. Interactive Seen Fees tracking (`src/pages/Fees.jsx`)
+Keeps track of seen fees via unique IDs in `localStorage`, offering individual and global seen controls:
+```javascript
+const markFeeAsSeen = (feeId) => {
+  const updated = [...seenPayments, feeId];
+  setSeenPayments(updated);
+  localStorage.setItem('seenPayments', JSON.stringify(updated));
+  window.dispatchEvent(new Event('fees-updated')); // Instantly triggers sidebar badge refresh
+};
+
+const markAllFeesAsSeen = () => {
+  const allIds = [];
+  appointments.forEach(appt => {
+    const fees = appt.feeHistory && appt.feeHistory.length > 0
+      ? appt.feeHistory
+      : (appt.feeAmount > 0 ? [{ _id: 'legacy' }] : []);
+    fees.forEach(fee => {
+      const feeId = fee._id === 'legacy' ? appt._id : fee._id;
+      allIds.push(feeId);
+    });
+  });
+  const updated = Array.from(new Set([...seenPayments, ...allIds]));
+  setSeenPayments(updated);
+  localStorage.setItem('seenPayments', JSON.stringify(updated));
+  window.dispatchEvent(new Event('fees-updated'));
+};
+```
+
+### 5. Automated Missed Call Logger (`src/pages/Communication.jsx`)
+Appends a missed call type message to the room if the initiator terminates the WebRTC call before a remote stream connects:
+```javascript
+const endCall = () => {
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  if (peerRef.current) {
+    peerRef.current.close();
+    peerRef.current = null;
+  }
+  if (pollingInterval.current) clearInterval(pollingInterval.current);
+  
+  // If we initiated the call and no remote stream was established, log it as a missed call
+  if (isInitiator && !remoteStream && roomId) {
+    api.post(`/communication/${roomId}/message`, {
+      text: `📞 Missed ${isAudioCall ? 'voice' : 'video'} call`,
+      type: 'missed_call'
+    }).catch(err => console.error("Failed to log missed call", err));
+  }
+
+  // Clear call signaling state in MongoDB
+  if (roomId) {
+    api.post(`/communication/${roomId}/signal`, { clearSignal: true }).catch(err => {});
+  }
+  // ... Reset states ...
+};
+```
+
+### 6. The 4-Hour Prescription Update limit (`src/pages/Prescriptions.jsx`)
+Restricts prescription updates to a strict 4-hour window from the scheduled slot:
+```javascript
+// Verification scheduled times (Morning: 8:00 AM, Afternoon: 2:00 PM, Night: 9:00 PM)
+const currentHour = todayObj.getHours();
+let shouldMarkMissed = false;
+
+if (time === 'Morning' && currentHour >= 12) shouldMarkMissed = true; // 8:00 AM + 4 hrs
+else if (time === 'Afternoon' && currentHour >= 18) shouldMarkMissed = true; // 2:00 PM + 4 hrs
+else if (time === 'Night' && currentHour >= 1 && currentHour < 21) shouldMarkMissed = true; // 9:00 PM + 4 hrs
+
+if (shouldMarkMissed) {
+  await api.put(`/prescriptions/${presc._id}/status`, { status: 'Missed', timeOfDay: time });
+}
+```
 
 ---
 
@@ -61,38 +211,24 @@ This guide is designed to prepare you for interviews regarding the **NeuroPlus G
 The application employs five core Mongoose schemas:
 
 ### 1. User Schema (`User.js`)
-Stores identities, profile details, qualifications, and live online presence tracking:
 *   `name`, `phone`, `password`, `role` ("Doctor" or "Patient")
 *   `profilePic`, `age`, `bloodGroup` (Patient-specific)
 *   `specialization`, `upiId`, `upiQrCode` (Doctor-specific)
 *   `lastActive` (Date; used for online status heartbeats)
 
 ### 2. Appointment Schema (`Appointment.js`)
-Tracks consultations, schedules, fee history, and statuses:
 *   `doctor` (Ref to User)
 *   `patient` (Ref to User)
 *   `scheduledAt` (Date)
 *   `status` ("Pending", "Accepted", "Completed", "Declined")
 *   `feeAmount` (Number), `amountPaid` (Number), `feeStatus` ("Unpaid", "Partial", "Paid")
-*   `feeHistory` (Array of subdocuments: amount, status, transaction details, date)
+*   `feeHistory` (Array: amount, status, details, date)
 
 ### 3. Room Schema (`Room.js`)
-Manages both WebRTC call signaling and persistent chat logs:
 *   `roomId` (String, e.g. `room-[appointmentId]`)
 *   `offer`, `answer` (Mixed WebRTC SDP payloads)
 *   `iceCandidates` (Array of candidate objects)
-*   `messages` (Array of message objects: senderId, senderRole, text, type ['chat', 'payment', 'missed_call'], seen, createdAt)
-
-### 4. Prescription Schema (`Prescription.js`)
-Defines patient schedules and medication schedules:
-*   `appointment` (Ref to Appointment)
-*   `doctor`, `patient` (Refs to User)
-*   `medicines` (Array: name, dosage, frequency, slots [morning, afternoon, night] with date/status ["Pending", "Taken", "Missed"])
-
-### 5. Report Schema (`Report.js`)
-Saves medical records:
-*   `patient` (Ref to User)
-*   `title` (String), `fileUrl` (String), `uploadedAt` (Date)
+*   `messages` (Array: senderId, senderRole, text, type ['chat', 'payment', 'missed_call'], seen, createdAt)
 
 ---
 
