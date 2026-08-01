@@ -53,6 +53,9 @@ const DeveloperDetails = () => {
     <div className="auth-container" style={{ background: 'var(--bg-main)', padding: '20px' }}>
       <style>
         {`
+          .developer-avatar { width: 160px; height: 160px; margin: 0 auto 20px; }
+          .developer-avatar img { width: 160px; height: 160px; object-fit: cover; border-radius: 50%; box-shadow: 0 10px 20px rgba(15,130,135,0.2); border: 4px solid rgba(255,255,255,0.6); }
+
           @media (max-width: 600px) {
             .developer-panel {
               padding: 24px !important;
@@ -84,6 +87,7 @@ const DeveloperDetails = () => {
             .mission-tags {
               flex-wrap: wrap;
             }
+            .developer-avatar, .developer-avatar img { width: 100px !important; height: 100px !important; }
           }
         `}
       </style>
@@ -111,8 +115,8 @@ const DeveloperDetails = () => {
         </button>
 
         <div className="developer-header" style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ width: '120px', height: '120px', margin: '0 auto 20px' }}>
-            <img src="/developer.jpg" alt="Srujan Hannikeri" style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '50%', boxShadow: '0 10px 20px rgba(15,130,135,0.2)', border: '4px solid rgba(255,255,255,0.6)' }} />
+          <div className="developer-avatar">
+            <img src="/developer.jpg" alt="Srujan Hannikeri" />
           </div>
           <h1 style={{ fontSize: '2.5rem', marginBottom: '8px', color: 'var(--text-main)' }}>Meet the Developer</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>The architect behind NeuroPlus Guard</p>
