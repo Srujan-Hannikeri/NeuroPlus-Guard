@@ -111,19 +111,8 @@ const DeveloperDetails = () => {
         </button>
 
         <div className="developer-header" style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ 
-            width: '100px', 
-            height: '100px', 
-            borderRadius: '50%', 
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))', 
-            margin: '0 auto 20px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: 'white',
-            boxShadow: '0 10px 20px rgba(15, 130, 135, 0.2)'
-          }}>
-            <Code2 size={48} />
+          <div style={{ width: '120px', height: '120px', margin: '0 auto 20px' }}>
+            <img src="/developer.jpg" alt="Srujan Hannikeri" style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '50%', boxShadow: '0 10px 20px rgba(15,130,135,0.2)', border: '4px solid rgba(255,255,255,0.6)' }} />
           </div>
           <h1 style={{ fontSize: '2.5rem', marginBottom: '8px', color: 'var(--text-main)' }}>Meet the Developer</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>The architect behind NeuroPlus Guard</p>
