@@ -39,16 +39,24 @@ const Prescriptions = () => {
     }
   };
 
-  const getDoseStartTime = (timeOfDay) => {
-    const now = new Date();
-    const d = new Date(now);
+  const getDoseStartTime = (timeOfDay, createdAt) => {
+    const createdDate = createdAt ? new Date(createdAt) : new Date();
+    const d = new Date(createdDate);
+
     if (timeOfDay === 'Morning') {
+      // Morning doses always start from the next day 8:00 AM
+      d.setDate(d.getDate() + 1);
       d.setHours(8, 0, 0, 0);
     } else if (timeOfDay === 'Afternoon') {
+      // Afternoon dose starts today 2:00 PM if created before 2:00 PM, otherwise tomorrow 2:00 PM
+      if (createdDate.getHours() >= 14) {
+        d.setDate(d.getDate() + 1);
+      }
       d.setHours(14, 0, 0, 0);
     } else if (timeOfDay === 'Night') {
-      if (now.getHours() < 21) {
-        d.setDate(d.getDate() - 1);
+      // Night dose starts today 9:00 PM if created before 9:00 PM, otherwise tomorrow 9:00 PM
+      if (createdDate.getHours() >= 21) {
+        d.setDate(d.getDate() + 1);
       }
       d.setHours(21, 0, 0, 0);
     }
@@ -71,13 +79,9 @@ const Prescriptions = () => {
       );
 
       for (const time of timesToCheck) {
-        // Skip if prescription was created after this slot's start time
-        const doseStartTime = getDoseStartTime(time);
-        const prescCreatedTime = new Date(presc.createdAt);
-        doseStartTime.setSeconds(0, 0);
-        prescCreatedTime.setSeconds(0, 0);
-        
-        if (prescCreatedTime.getTime() > doseStartTime.getTime()) {
+        // Skip if prescription dose start time has not arrived yet
+        const doseStartTime = getDoseStartTime(time, presc.createdAt);
+        if (todayObj.getTime() < doseStartTime.getTime()) {
           continue;
         }
 
@@ -289,12 +293,9 @@ const Prescriptions = () => {
                         const todayObj = new Date();
                         const currentHour = todayObj.getHours();
                         
-                        // Hide slot if the prescription was created after the slot started
-                        const doseStartTime = getDoseStartTime(time);
-                        const prescCreatedTime = new Date(presc.createdAt);
-                        doseStartTime.setSeconds(0, 0);
-                        prescCreatedTime.setSeconds(0, 0);
-                        if (prescCreatedTime.getTime() > doseStartTime.getTime()) {
+                        // Hide slot if the prescription dose start time has not arrived yet
+                        const doseStartTime = getDoseStartTime(time, presc.createdAt);
+                        if (todayObj.getTime() < doseStartTime.getTime()) {
                           return null;
                         }
 
