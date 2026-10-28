@@ -308,16 +308,16 @@ const generatePrecautionsAndClinicalGuidance = (prompt, askMyDocReply) => {
     ];
   }
 
-  let finalOutput = `### 🩺 Clinical Overview
+  let finalOutput = `🩺 Clinical Overview:
 ${assessment}
 
-### 🛡️ Recommended Precautions & Care Measures to be Done:
+🛡️ Recommended Precautions & Care Measures to be Done:
 ${precautions.map(p => `• ${p}`).join('\n')}
 
-### ⚠️ Warning Signs & Emergency Red Flags:
+⚠️ Warning Signs & Emergency Red Flags:
 ${redFlags.map(r => `• ${r}`).join('\n')}
 
-### 👨‍⚕️ Specialist Consultation (via AskMyDoc API):
+👨‍⚕️ Specialist Consultation (via AskMyDoc API):
 ${askMyDocReply || 'Consult a qualified General Physician or specialist to receive a personalized medical examination.'}`;
 
   return finalOutput;
@@ -429,24 +429,24 @@ const queryMedicalLLM = async (userPrompt, history = [], systemPrompt = null) =>
     const endpoint = isGroq 
       ? 'https://api.groq.com/openai/v1/chat/completions' 
       : 'https://api.openai.com/v1/chat/completions';
-    const model = isGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+    const model = isGroq ? 'qwen/qwen3.8-27b' : 'gpt-4o-mini';
 
-    const defaultSystem = `You are NeuroPlus Medical AI, an expert, compassionate clinical assistant.
-Your goal is to evaluate any health condition, disease, symptom, or question presented by the patient with deep clinical expertise.
-You MUST format your entire response using these exact markdown headers:
-### 🩺 Clinical Overview
-[Explain the pathophysiology, likely causes, and nature of this condition or disease in clear, reassuring, and accurate clinical detail.]
+    const defaultSystem = `You are NeuroPlus Medical AI. Give a SHORT, CONCISE, and direct clinical response. Do NOT write long explanations.
+Do NOT use markdown hash symbols like ###. Format strictly with these clean headers:
+🩺 Clinical Overview:
+[1 to 2 short sentences naming the exact disease/condition and primary cause.]
 
-### 🛡️ Recommended Precautions & Care Measures to be Done:
-[Provide 5 to 6 bullet points with detailed, practical, actionable precautions, home remedies, lifestyle, or self-care steps the patient should follow.]
+🛡️ Recommended Precautions & Care Measures to be Done:
+• [Short actionable precaution 1]
+• [Short actionable precaution 2]
+• [Short actionable precaution 3]
 
-### ⚠️ Warning Signs & Emergency Red Flags:
-[List 3 to 4 critical symptoms or complications that require immediate emergency medical care.]
+⚠️ Warning Signs & Emergency Red Flags:
+• [Critical emergency sign 1]
+• [Critical emergency sign 2]
 
-### 👨‍⚕️ Specialist Consultation:
-[State the exact medical specialty (e.g. Neurologist, Cardiologist, Endocrinologist, Orthopedist) that manages this condition.]
-
-Do not include disclaimers in every sentence; maintain high clinical authority, practical utility, and empathy.`;
+👨‍⚕️ Specialist Consultation:
+[1 short sentence naming the exact specialist doctor who manages this.]`;
 
     const messages = [
       { role: 'system', content: systemPrompt || defaultSystem },

@@ -8,15 +8,76 @@ import { API_BASE_URL } from '../config';
 
 const renderMarkdown = (text) => {
   if (!text) return null;
-  // Convert basic markdown to HTML safely
-  let html = text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\n/g, '<br/>');
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+
+  // Split lines
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.86rem' }}>
+      {lines.map((line, idx) => {
+        const isHeader = line.startsWith('###') || line.startsWith('##') || line.startsWith('📋') || line.startsWith('🛡️') || line.startsWith('⚠️') || line.startsWith('👨‍⚕️') || line.startsWith('🩺');
+        const cleaned = line.replace(/^#{1,6}\s*/, '').trim();
+
+        if (isHeader) {
+          let badgeBg = '#f1f5f9';
+          let textColor = '#0f172a';
+          let borderCol = '#cbd5e1';
+          if (cleaned.includes('📋') || cleaned.includes('🩺')) {
+            badgeBg = '#f0f9ff'; textColor = '#0369a1'; borderCol = '#bae6fd';
+          } else if (cleaned.includes('🛡️')) {
+            badgeBg = '#f0fdf4'; textColor = '#15803d'; borderCol = '#bbf7d0';
+          } else if (cleaned.includes('⚠️')) {
+            badgeBg = '#fff1f2'; textColor = '#be123c'; borderCol = '#fecdd3';
+          } else if (cleaned.includes('👨‍⚕️')) {
+            badgeBg = '#faf5ff'; textColor = '#6b21a8'; borderCol = '#e9d5ff';
+          }
+
+          return (
+            <div key={idx} style={{ 
+              background: badgeBg, 
+              color: textColor, 
+              fontWeight: 700, 
+              fontSize: '0.8rem', 
+              padding: '3px 8px', 
+              borderRadius: '5px', 
+              marginTop: idx === 0 ? '0' : '4px',
+              border: `1px solid ${borderCol}`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              width: 'fit-content'
+            }}>
+              {cleaned}
+            </div>
+          );
+        }
+
+        const isBullet = cleaned.startsWith('•') || cleaned.startsWith('*') || cleaned.startsWith('-');
+        const content = isBullet ? cleaned.substring(1).trim() : cleaned;
+
+        // Format bold text
+        const parts = content.split(/(\*\*.*?\*\*)/g);
+        const formatted = parts.map((part, pIdx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={pIdx} style={{ color: '#0f172a' }}>{part.slice(2, -2)}</strong>;
+          }
+          return part;
+        });
+
+        return (
+          <div key={idx} style={{ 
+            paddingLeft: isBullet ? '8px' : '2px', 
+            color: '#1e293b', 
+            lineHeight: '1.4',
+            display: isBullet ? 'flex' : 'block',
+            gap: '6px'
+          }}>
+            {isBullet && <span style={{ color: '#0284c7', fontWeight: 'bold' }}>•</span>}
+            <div>{formatted}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 const AIChatbot = () => {

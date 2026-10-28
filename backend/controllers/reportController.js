@@ -36,26 +36,29 @@ const queryReportLLM = async (reportData) => {
     const endpoint = isGroq 
       ? 'https://api.groq.com/openai/v1/chat/completions' 
       : 'https://api.openai.com/v1/chat/completions';
-    const model = isGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+    const model = isGroq ? 'qwen/qwen3.8-27b' : 'gpt-4o-mini';
 
-    const systemPrompt = `You are a Senior Clinical Diagnostics & Pathology Specialist on NeuroPlus Medical AI.
-Your goal is to evaluate any medical report, lab values, or diagnostic test with deep clinical accuracy.
-Format your output using these exact markdown headers:
-### 📋 Clinical Summary & Parameters (via AskMyDoc & Medical AI)
-• **Document Type**: [Identified Test/Report Type]
-• **Diagnostic Review**: [Explain what the report assesses, physiological significance, and clinical evaluation]
+    const systemPrompt = `You are NeuroPlus Medical AI. Provide a SHORT, CONCISE, and direct clinical analysis of this medical report or disease. Keep each section brief (maximum 2-3 short bullet points, no long paragraphs).
+Do NOT include markdown hash symbols like ### in your headers. Format strictly as:
+📋 Clinical Summary & Parameters (via AskMyDoc):
+• Disease / Test: [Name the exact disease or test evaluated]
+• Diagnostic Review: [1 to 2 short sentences on what the results indicate]
 
-### 🛡️ Recommended Precautions & Care Measures to be Done:
-[Provide 5-6 bullet points of specific dietary, lifestyle, self-care, or medication timing precautions]
+🛡️ Recommended Precautions & Care Measures to be Done:
+• [Short practical precaution 1]
+• [Short practical precaution 2]
+• [Short practical precaution 3]
 
-### ⚠️ Warning Signs & Emergency Red Flags:
-[List 3-4 critical emergency red flags]
+⚠️ Warning Signs & Emergency Red Flags:
+• [Critical emergency sign 1]
+• [Critical emergency sign 2]
 
-### 👨‍⚕️ Specialist Consultation (via AskMyDoc API):
-[Specify the exact medical specialist who must evaluate this test]`;
+👨‍⚕️ Specialist Consultation (via AskMyDoc API):
+[1 short sentence naming the exact doctor specialty.]`;
 
     const userPrompt = `Please clinically evaluate this medical report:
-- Report Category: ${reportData.category || 'Medical Report'}
+- Disease / Test Name: ${reportData.reportTitle || reportData.category || 'Medical Report'}
+- Category: ${reportData.category || 'General Medical Report'}
 - File Name: ${reportData.fileName || 'Diagnostic File'}
 ${reportData.notes ? `- Reported Patient Findings / Lab Values: "${reportData.notes}"` : ''}`;
 
@@ -328,18 +331,18 @@ const buildClinicalReportAnalysis = async (reportData) => {
   // Query AskMyDoc API dynamically for the verified specialist
   const askMyDocSpecialist = await queryAskMyDocSpecialist(category);
 
-  let output = `### 📋 Clinical Summary & Parameters (via AskMyDoc)
-• **Document Type**: ${category}
-• **Analyzed File**: ${fileName || 'Medical File'} ${fileType ? `(${fileType})` : ''}
-${notes ? `• **Reported Patient Findings / Values**: "${notes}"\n` : ''}• **Diagnostic Review**: ${analysis}
+  let output = `📋 Clinical Summary & Parameters (via AskMyDoc):
+• Document Type: ${category}
+• Analyzed File: ${fileName || 'Medical File'} ${fileType ? `(${fileType})` : ''}
+${notes ? `• Reported Patient Findings / Values: "${notes}"\n` : ''}• Diagnostic Review: ${analysis}
 
-### 🛡️ Recommended Precautions & Care Measures to be Done:
+🛡️ Recommended Precautions & Care Measures to be Done:
 ${precautions.map(p => `• ${p}`).join('\n')}
 
-### ⚠️ Warning Signs & Emergency Red Flags:
+⚠️ Warning Signs & Emergency Red Flags:
 ${redFlags.map(r => `• ${r}`).join('\n')}
 
-### 👨‍⚕️ Specialist Consultation (via AskMyDoc API):
+👨‍⚕️ Specialist Consultation (via AskMyDoc API):
 ${askMyDocSpecialist || 'Please consult a verified medical practitioner for clinical evaluation of this report.'}`;
 
   return output;
