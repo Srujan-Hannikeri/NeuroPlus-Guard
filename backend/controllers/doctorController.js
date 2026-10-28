@@ -5,8 +5,8 @@ const Report = require('../models/Report');
 exports.getDoctors = async (req, res) => {
   try {
     const { specialization } = req.query;
-    // Return all doctors for now to ensure visibility
-    let query = { role: 'Doctor' };
+    // Return verified doctors
+    let query = { role: 'Doctor', verificationStatus: 'Verified' };
     if (specialization) query.specialization = specialization;
 
     const doctors = await User.find(query).select('-password');

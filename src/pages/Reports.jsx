@@ -182,7 +182,7 @@ const ReportCard = ({ report, speakText, onGenerate, userRole }) => (
              disabled={report.aiSummary === 'Generating...'}
              className="btn-primary" 
              style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#3b82f6' }}>
-             {report.aiSummary === 'Generating...' ? 'Generating...' : '✨ Generate AI Description'}
+             {report.aiSummary === 'Generating...' ? 'Analyzing...' : '✨ Analyze with AskMyDoc AI'}
            </button>
         )}
         <button 
@@ -193,7 +193,10 @@ const ReportCard = ({ report, speakText, onGenerate, userRole }) => (
         </button>
       </div>
     </div>
-    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}><strong>AI Summary:</strong> {report.aiSummary || 'Analysis pending...'}</p>
+    <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.6', background: '#f8fafc', padding: '12px', borderRadius: '6px', whiteSpace: 'pre-line' }}>
+      <strong style={{ color: 'var(--primary)' }}>AI Summary (AskMyDoc):</strong>
+      <p style={{ margin: '6px 0 0 0' }}>{report.aiSummary || 'Analysis pending...'}</p>
+    </div>
     <a href={report.fileUrl?.startsWith('data:') ? report.fileUrl : `${API_URL}${report.fileUrl}`} download={report.fileUrl?.startsWith('data:') ? 'report' : undefined} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '12px', color: 'var(--primary)', textDecoration: 'none', fontWeight: 'bold' }}>
       View Original File
     </a>

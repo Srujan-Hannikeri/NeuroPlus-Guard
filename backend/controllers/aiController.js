@@ -125,11 +125,52 @@ ${adviceGiven.map(a => `  * ${a}`).join('\n')}
 *Disclaimer: This note was generated using localized offline rules because the live AI service is currently unavailable.*`;
 };
 
+const chatWithAskMyDoc = async (message, history = []) => {
+  try {
+    const response = await fetch('https://api.askmydoc.in/api/rag/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        history: history || [],
+        session_id: 'chat-' + Date.now(),
+        top_k: 4
+      }),
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.reply) {
+        let fullReply = data.reply;
+        if (data.results && data.results.length > 0) {
+          const docList = data.results
+            .map(d => `• **${d.name || d.first_name + ' ' + d.last_name}** (${d.specialty || 'Medical Specialist'})`)
+            .join('\n');
+          fullReply += `\n\n**Recommended Verified Specialists (via AskMyDoc):**\n${docList}`;
+        }
+        return fullReply;
+      }
+    }
+  } catch (err) {
+    console.warn('AskMyDoc chat request error:', err.message);
+  }
+  return null;
+};
+
 exports.chatWithAI = async (req, res) => {
   try {
-    const { prompt, imageBase64, mimeType } = req.body;
+    const { prompt, imageBase64, mimeType, history } = req.body;
 
-    // Check if API key is provided
+    // Use AskMyDoc API for text clinical chat
+    if (!imageBase64 && prompt && !prompt.startsWith("Generate a brief medical summary/notes from this consultation transcript:")) {
+      const askMyDocReply = await chatWithAskMyDoc(prompt, history);
+      if (askMyDocReply) {
+        return res.json({ reply: askMyDocReply, source: 'AskMyDoc AI' });
+      }
+    }
+
+    // Check if API key is provided for Gemini fallback / image analysis
     if (!process.env.GEMINI_API_KEY) {
       console.warn("GEMINI_API_KEY is missing. Providing rule-based offline response.");
       if (prompt && prompt.startsWith("Generate a brief medical summary/notes from this consultation transcript:")) {

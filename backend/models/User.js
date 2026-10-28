@@ -17,7 +17,12 @@ const userSchema = new mongoose.Schema({
   // Doctor Fields
   specialization: { type: String },
   experience: { type: Number },
-  verificationStatus: { type: String, enum: ['Pending', 'Verified', 'Rejected'], default: 'Verified' },
+  registrationNumber: { type: String },
+  stateCouncil: { type: String },
+  registrationYear: { type: String },
+  qualification: { type: String },
+  doctorVerificationData: { type: mongoose.Schema.Types.Mixed },
+  verificationStatus: { type: String, enum: ['Pending', 'Verified', 'Rejected'], default: 'Pending' },
   upiId: { type: String },
   upiQrCode: { type: String }, // Path to uploaded QR code image
   verified: { type: Boolean, default: false }

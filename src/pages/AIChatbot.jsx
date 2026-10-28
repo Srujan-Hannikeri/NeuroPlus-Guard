@@ -22,7 +22,7 @@ const renderMarkdown = (text) => {
 const AIChatbot = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Hello! I am your NeuroPlus AI assistant. Please describe your symptoms. Note: I am not a substitute for professional medical advice.' }
+    { sender: 'bot', text: 'Hello! I am your NeuroPlus AI assistant powered by AskMyDoc Medical AI. Please describe your symptoms or health questions. Note: I am not a substitute for an in-person medical evaluation.' }
   ]);
   const [input, setInput] = useState('');
   const [image, setImage] = useState(null);
@@ -71,13 +71,17 @@ const AIChatbot = () => {
       const res = await axios.post(`${API_BASE_URL}/ai/chat`, {
         prompt: currentInput,
         imageBase64,
-        mimeType
+        mimeType,
+        history: messages.slice(-6).map(m => ({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.text
+        }))
       });
 
       setMessages(prev => [...prev, { sender: 'bot', text: res.data.reply }]);
     } catch (error) {
       console.error("AI request failed", error);
-      setMessages(prev => [...prev, { sender: 'bot', text: error.response?.data?.message || "Sorry, I am having trouble connecting to the server. Please check your connection or GEMINI_API_KEY." }]);
+      setMessages(prev => [...prev, { sender: 'bot', text: error.response?.data?.message || "Sorry, I am having trouble connecting to the server. Please check your connection or AskMyDoc service." }]);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +92,10 @@ const AIChatbot = () => {
       <nav className="nav-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate(-1)}>
           <Logo width={40} height={40} />
-          <h2>NeuroPlus Guard - AI Symptom Checker</h2>
+          <div>
+            <h2 style={{ margin: 0 }}>NeuroPlus Guard - AI Symptom Checker</h2>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Powered by AskMyDoc Medical AI</span>
+          </div>
         </div>
         <LiveClock />
       </nav>

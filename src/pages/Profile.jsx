@@ -133,9 +133,29 @@ const Profile = () => {
                         <span style={{ color: 'var(--text-muted)' }}>Specialization:</span>
                         <span style={{ fontWeight: 'bold' }}>{user?.specialization || 'General'}</span>
                     </div>
+                    {user?.registrationNumber && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Reg Number:</span>
+                            <span style={{ fontWeight: 'bold' }}>{user.registrationNumber}</span>
+                        </div>
+                    )}
+                    {user?.stateCouncil && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Medical Council:</span>
+                            <span style={{ fontWeight: 'bold' }}>{user.stateCouncil}</span>
+                        </div>
+                    )}
+                    {user?.qualification && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Qualification:</span>
+                            <span style={{ fontWeight: 'bold' }}>{user.qualification}</span>
+                        </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-                        <span style={{ fontWeight: 'bold', color: '#10b981' }}>{user?.verificationStatus || 'Verified'}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>AskMyDoc Verification:</span>
+                        <span style={{ fontWeight: 'bold', color: user?.verificationStatus === 'Verified' ? '#10b981' : '#f59e0b' }}>
+                            {user?.verificationStatus === 'Verified' ? '✓ Verified Practitioner' : (user?.verificationStatus || 'Pending')}
+                        </span>
                     </div>
                 </>
             )}

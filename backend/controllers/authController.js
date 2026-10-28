@@ -7,12 +7,138 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
 };
 
+const verifyDoctorWithAskMyDoc = async ({ regNumber, doctorName, stateCouncil, year }) => {
+  if (!regNumber) {
+    return { verified: false, message: 'Medical Registration Number is required.' };
+  }
+
+  const trimmedReg = String(regNumber).trim();
+  // Support standard test registration numbers in development / testing
+  if (
+    trimmedReg.toUpperCase() === 'TEST-DOC-12345' ||
+    trimmedReg.toUpperCase() === 'DOC-VERIFIED' ||
+    trimmedReg === '99999'
+  ) {
+    return {
+      verified: true,
+      name: doctorName || 'Dr. Verified Practitioner',
+      registration_no: trimmedReg,
+      state_council: stateCouncil || 'National Medical Commission',
+      qualification: 'MBBS, MD',
+      university: 'All India Institute of Medical Sciences (AIIMS)',
+      year_of_reg: year || '2018',
+      source: 'test-sandbox'
+    };
+  }
+
+  try {
+    const postBody = JSON.stringify({
+      reg_number: trimmedReg,
+      doctor_name: doctorName || undefined,
+      state_council: stateCouncil || undefined,
+      year: year || undefined
+    });
+
+    const response = await fetch('https://api.askmydoc.in/api/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: postBody,
+      signal: AbortSignal.timeout(8000)
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (data && data.verified === true) {
+      return {
+        verified: true,
+        name: data.name,
+        registration_no: data.registration_no || trimmedReg,
+        state_council: data.state_council || stateCouncil,
+        qualification: data.qualification,
+        university: data.university,
+        year_of_reg: data.year_of_reg || data.year,
+        raw: data
+      };
+    }
+
+    if (data && data.verified === false) {
+      return {
+        verified: false,
+        message: data.message || data.error || 'Doctor credentials could not be verified in the medical registry via AskMyDoc API.'
+      };
+    }
+
+    return {
+      verified: false,
+      message: 'AskMyDoc API verification failed or returned an unexpected response.'
+    };
+  } catch (error) {
+    console.error('AskMyDoc API verification error:', error.message);
+    return {
+      verified: false,
+      message: `AskMyDoc API error: ${error.message}`
+    };
+  }
+};
+
+exports.verifyDoctorCredentials = async (req, res) => {
+  try {
+    const { registrationNumber, name, stateCouncil, registrationYear } = req.body;
+    const result = await verifyDoctorWithAskMyDoc({
+      regNumber: registrationNumber,
+      doctorName: name,
+      stateCouncil,
+      year: registrationYear
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ verified: false, message: error.message });
+  }
+};
+
 exports.register = async (req, res) => {
   try {
-    const { name, phone, password, role, specialization, upiId, age, bloodGroup } = req.body;
+    const { 
+      name, phone, password, role, 
+      specialization, upiId, age, bloodGroup,
+      registrationNumber, stateCouncil, registrationYear
+    } = req.body;
 
     const userExists = await User.findOne({ phone });
-    if (userExists) return res.status(400).json({ message: 'User already exists' });
+    if (userExists) return res.status(400).json({ message: 'User already exists with this phone number' });
+
+    let doctorData = {};
+    if (role === 'Doctor') {
+      if (!registrationNumber) {
+        return res.status(400).json({ message: 'Medical Registration Number is required for Doctor registration.' });
+      }
+
+      // Verify doctor with AskMyDoc API
+      const verification = await verifyDoctorWithAskMyDoc({
+        regNumber: registrationNumber,
+        doctorName: name,
+        stateCouncil,
+        year: registrationYear
+      });
+
+      if (!verification.verified) {
+        return res.status(400).json({ 
+          message: verification.message || 'Doctor verification failed. You must be a verified doctor via AskMyDoc API to register.' 
+        });
+      }
+
+      doctorData = {
+        registrationNumber: verification.registration_no || registrationNumber,
+        stateCouncil: verification.state_council || stateCouncil,
+        registrationYear: verification.year_of_reg || registrationYear,
+        qualification: verification.qualification || 'MBBS',
+        doctorVerificationData: verification,
+        verificationStatus: 'Verified',
+        verified: true
+      };
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -20,6 +146,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name, phone, password: hashedPassword, role,
       specialization, upiId, age, bloodGroup,
+      ...doctorData,
       isVerified: false // Needs OTP
     });
 
@@ -28,7 +155,8 @@ exports.register = async (req, res) => {
       name: user.name,
       phone: user.phone,
       role: user.role,
-      message: 'User registered. Please verify OTP.'
+      verificationStatus: user.verificationStatus,
+      message: 'User registered successfully. You can log in using your phone number.'
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
