@@ -6,11 +6,29 @@ import LiveClock from '../components/common/LiveClock';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config';
 
+const REPORT_CATEGORIES = [
+  'Auto-Detect / General Clinical Report',
+  'Complete Blood Count & Hematology (CBC)',
+  'Neurological & Spine Imaging (MRI / CT / EEG)',
+  'Cardiology Diagnostics (ECG / Echocardiogram)',
+  'Glycemic & Diabetic Panel (Blood Sugar / HbA1c)',
+  'Lipid Profile & Cholesterol Panel',
+  'Liver Function Test (LFT) & Hepatic Panel',
+  'Kidney Function Test (KFT / RFT) & Renal Panel',
+  'Urine Routine & Microscopy (Urinalysis)',
+  'Thyroid Function Profile (TSH / T3 / T4)',
+  'Chest X-Ray & Pulmonary Diagnostic Report',
+  'Abdominal Ultrasound & Sonography',
+  'Orthopedic Imaging & Bone Health (X-Ray / DEXA)'
+];
+
 const Reports = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [file, setFile] = useState(null);
+  const [category, setCategory] = useState(REPORT_CATEGORIES[0]);
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -42,11 +60,16 @@ const Reports = () => {
         await api.post('/reports/upload', {
           fileBase64: base64data,
           fileType: file.type,
-          fileName: file.name
+          fileName: file.name,
+          category: category.startsWith('Auto-Detect') ? '' : category,
+          notes: notes.trim(),
+          reportTitle: file.name
         });
         
-        alert('Report uploaded successfully!');
+        alert('Report uploaded & analyzed with AskMyDoc AI!');
         setFile(null);
+        setNotes('');
+        setCategory(REPORT_CATEGORIES[0]);
         fetchReports();
         setLoading(false);
       };
@@ -65,18 +88,20 @@ const Reports = () => {
       alert("Text-to-speech not supported in your browser.");
       return;
     }
-    window.speechSynthesis.cancel(); // Stop current speaking
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     window.speechSynthesis.speak(utterance);
   };
 
-  const generateAiDescription = async (reportId) => {
+  const generateAiDescription = async (reportId, customCat, customNotes) => {
     try {
-      const originalReports = [...reports];
-      // Optimistic update to show loading state
       setReports(reports.map(r => r._id === reportId ? { ...r, aiSummary: 'Generating...' } : r));
       
-      const { data } = await api.put(`/reports/${reportId}/summary`);
+      const payload = {};
+      if (customCat && !customCat.startsWith('Auto-Detect')) payload.category = customCat;
+      if (customNotes !== undefined) payload.notes = customNotes;
+
+      const { data } = await api.put(`/reports/${reportId}/summary`, payload);
       setReports(reports.map(r => r._id === reportId ? data : r));
     } catch (error) {
       alert(error.response?.data?.message || "Failed to analyze report with AskMyDoc AI. Please try again.");
@@ -92,7 +117,7 @@ const Reports = () => {
     return acc;
   }, {});
 
-  // Sort each patient's reports by date descending (recent first)
+  // Sort each patient's reports by date descending
   Object.keys(groupedReports).forEach(patientName => {
     groupedReports[patientName].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   });
@@ -109,18 +134,59 @@ const Reports = () => {
 
       {user?.role === 'Patient' && (
         <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
-          <h3 style={{ marginBottom: '16px', color: 'var(--primary)' }}>Upload New Report</h3>
-          <form onSubmit={handleUpload} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <input 
-              type="file" 
-              accept=".pdf,image/*" 
-              onChange={(e) => setFile(e.target.files[0])} 
-              className="input-field" 
-              style={{ flex: 1 }}
-            />
-            <button type="submit" className="btn-primary" disabled={loading || !file}>
-              {loading ? 'Uploading...' : 'Upload'}
-            </button>
+          <h3 style={{ marginBottom: '16px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>📤</span> Upload New Medical Report
+          </h3>
+          <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Select File (PDF or Image) *
+                </label>
+                <input 
+                  type="file" 
+                  accept=".pdf,image/*" 
+                  onChange={(e) => setFile(e.target.files[0])} 
+                  className="input-field" 
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Report / Test Category
+                </label>
+                <select 
+                  value={category} 
+                  onChange={(e) => setCategory(e.target.value)} 
+                  className="input-field"
+                  style={{ width: '100%', cursor: 'pointer' }}>
+                  {REPORT_CATEGORIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                Key Observed Values or Doctor Findings (Optional)
+              </label>
+              <input 
+                type="text" 
+                placeholder="e.g. Hemoglobin 9.5 g/dL, Fasting sugar 185 mg/dL, L4-L5 disc bulge, SGPT 80" 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)} 
+                className="input-field"
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div>
+              <button type="submit" className="btn-primary" disabled={loading || !file} style={{ padding: '10px 24px' }}>
+                {loading ? 'Uploading & Analyzing...' : '🚀 Upload & Analyze with AskMyDoc'}
+              </button>
+            </div>
           </form>
         </div>
       )}
@@ -152,7 +218,13 @@ const Reports = () => {
                   <h4 style={{ color: 'var(--primary)', marginBottom: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>Patient: {patientName}</h4>
                   <div style={{ display: 'grid', gap: '16px' }}>
                     {groupedReports[patientName].map(report => (
-                      <ReportCard key={report._id} report={report} speakText={speakText} onGenerate={() => generateAiDescription(report._id)} userRole={user?.role} />
+                      <ReportCard 
+                        key={report._id} 
+                        report={report} 
+                        speakText={speakText} 
+                        onGenerate={(cat, n) => generateAiDescription(report._id, cat, n)} 
+                        userRole={user?.role} 
+                      />
                     ))}
                   </div>
                 </div>
@@ -160,7 +232,13 @@ const Reports = () => {
             ) : (
               <div style={{ display: 'grid', gap: '16px' }}>
                 {reports.map((report) => (
-                  <ReportCard key={report._id} report={report} speakText={speakText} onGenerate={() => generateAiDescription(report._id)} userRole={user?.role} />
+                  <ReportCard 
+                    key={report._id} 
+                    report={report} 
+                    speakText={speakText} 
+                    onGenerate={(cat, n) => generateAiDescription(report._id, cat, n)} 
+                    userRole={user?.role} 
+                  />
                 ))}
               </div>
             )}
@@ -171,37 +249,107 @@ const Reports = () => {
   );
 };
 
-const ReportCard = ({ report, speakText, onGenerate, userRole }) => (
-  <div style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-      <h4 style={{ color: 'var(--text-main)', margin: 0 }}>Report from {new Date(report.createdAt).toLocaleDateString()}</h4>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        <button 
-          onClick={onGenerate}
-          disabled={report.aiSummary === 'Generating...'}
-          className="btn-primary" 
-          style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-          {report.aiSummary === 'Generating...' ? '⏳ Analyzing...' : (report.aiSummary && !report.aiSummary.startsWith('Analysis pending') ? '🔄 Re-Analyze with AskMyDoc' : '✨ Analyze with AskMyDoc AI')}
-        </button>
-        <button 
-          onClick={() => speakText(report.aiSummary || "Analysis pending")}
-          className="btn-primary" 
-          style={{ padding: '6px 14px', fontSize: '0.82rem', background: 'var(--secondary)', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer' }}>
-          🔊 Speak
-        </button>
+const ReportCard = ({ report, speakText, onGenerate, userRole }) => {
+  const [selectedCat, setSelectedCat] = useState(report.category || REPORT_CATEGORIES[0]);
+  const [customNote, setCustomNote] = useState(report.notes || '');
+  const [showOptions, setShowOptions] = useState(false);
+
+  return (
+    <div style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+        <div>
+          <h4 style={{ color: 'var(--text-main)', margin: 0 }}>
+            {report.fileName || `Report from ${new Date(report.createdAt).toLocaleDateString()}`}
+          </h4>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.75rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              🏷️ {report.category || 'General Report'}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+              📅 {new Date(report.createdAt).toLocaleDateString()}
+            </span>
+            {report.notes && (
+              <span style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '12px' }}>
+                📝 {report.notes}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setShowOptions(!showOptions)}
+            style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#334155', cursor: 'pointer' }}>
+            ⚙️ Options
+          </button>
+          <button 
+            onClick={() => onGenerate(selectedCat, customNote)}
+            disabled={report.aiSummary === 'Generating...'}
+            className="btn-primary" 
+            style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+            {report.aiSummary === 'Generating...' ? '⏳ Analyzing...' : (report.aiSummary && !report.aiSummary.startsWith('Analysis pending') ? '🔄 Re-Analyze with AskMyDoc' : '✨ Analyze with AskMyDoc AI')}
+          </button>
+          <button 
+            onClick={() => speakText(report.aiSummary || "Analysis pending")}
+            className="btn-primary" 
+            style={{ padding: '6px 14px', fontSize: '0.82rem', background: 'var(--secondary)', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer' }}>
+            🔊 Speak
+          </button>
+        </div>
       </div>
-    </div>
-    <div style={{ fontSize: '0.9rem', color: '#334155', lineHeight: '1.65', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-        <span style={{ fontSize: '1.1rem' }}>🤖</span>
-        <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>AskMyDoc Clinical Analysis & Precautions:</strong>
+
+      {showOptions && (
+        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Change Category:</label>
+              <select 
+                value={selectedCat} 
+                onChange={(e) => setSelectedCat(e.target.value)} 
+                className="input-field" 
+                style={{ width: '100%', fontSize: '0.8rem', padding: '4px 8px' }}>
+                {REPORT_CATEGORIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Update Findings / Lab Values:</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Hemoglobin 9.2, Platelets normal" 
+                value={customNote} 
+                onChange={(e) => setCustomNote(e.target.value)} 
+                className="input-field" 
+                style={{ width: '100%', fontSize: '0.8rem', padding: '4px 8px' }} 
+              />
+            </div>
+          </div>
+          <div>
+            <button 
+              onClick={() => {
+                onGenerate(selectedCat, customNote);
+                setShowOptions(false);
+              }}
+              style={{ padding: '5px 12px', fontSize: '0.78rem', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              ✓ Apply & Re-Analyze
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: '0.9rem', color: '#334155', lineHeight: '1.65', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <span style={{ fontSize: '1.1rem' }}>🤖</span>
+          <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>AskMyDoc Clinical Analysis & Precautions:</strong>
+        </div>
+        <div style={{ margin: '0', whiteSpace: 'pre-wrap', color: '#1e293b' }}>{report.aiSummary || 'Analysis pending...'}</div>
       </div>
-      <div style={{ margin: '0', whiteSpace: 'pre-wrap', color: '#1e293b' }}>{report.aiSummary || 'Analysis pending...'}</div>
+      <a href={report.fileUrl?.startsWith('data:') ? report.fileUrl : `${API_URL}${report.fileUrl}`} download={report.fileUrl?.startsWith('data:') ? (report.fileName || 'report') : undefined} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '12px', color: 'var(--primary)', textDecoration: 'none', fontWeight: 'bold' }}>
+        View Original File
+      </a>
     </div>
-    <a href={report.fileUrl?.startsWith('data:') ? report.fileUrl : `${API_URL}${report.fileUrl}`} download={report.fileUrl?.startsWith('data:') ? 'report' : undefined} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '12px', color: 'var(--primary)', textDecoration: 'none', fontWeight: 'bold' }}>
-      View Original File
-    </a>
-  </div>
-);
+  );
+};
 
 export default Reports;

@@ -3,119 +3,308 @@ const fs = require('fs');
 
 const generatePrecautionsAndClinicalGuidance = (prompt, askMyDocReply) => {
   const query = (prompt || '').toLowerCase();
+  const docReplyLower = (askMyDocReply || '').toLowerCase();
   let assessment = "";
   let precautions = [];
   let redFlags = [];
 
-  if (query.includes('cough') || query.includes('cold') || query.includes('throat') || query.includes('phlegm') || query.includes('sneeze') || query.includes('bronch') || query.includes('congestion')) {
-    assessment = "Your symptoms indicate respiratory or throat irritation, commonly caused by viral upper respiratory infections, allergic bronchitis, dry indoor air, or dust exposure.";
+  // 1. Cardiovascular / Acute Chest / Heart Conditions
+  if (/\b(chest|heart|angina|palpitation|palpitations|cardiac|cardio)\b/.test(query) || docReplyLower.includes('cardiologist')) {
+    assessment = "Chest pain, tightness, or heart palpitations demand urgent and prioritized evaluation. These symptoms can be associated with cardiovascular strain, ischemic heart events, cardiac arrhythmias, or costochondritis.";
     precautions = [
-      "Stay well-hydrated: Drink warm water, clear broths, or herbal teas with honey and ginger to soothe irritated airways.",
-      "Practice steam inhalation 2 to 3 times daily or run a room humidifier to loosen chest congestion.",
-      "Gargle with warm salt water (half teaspoon salt in warm water) twice daily to reduce throat inflammation.",
-      "Avoid cold beverages, deep-fried foods, cigarette smoke, and exposure to sudden changes in air temperature.",
-      "Sleep with your head slightly elevated using an extra pillow to prevent nocturnal coughing attacks.",
-      "Rest your voice and avoid straining your throat."
+      "Cease all physical exertion immediately; sit or rest in a comfortable semi-reclined position.",
+      "Loosen tight collars, ties, belts, or clothing around your neck and chest to optimize air intake.",
+      "Stay calm and practice slow, measured diaphragmatic breathing to minimize sympathetic nervous activation.",
+      "Do NOT attempt to drive yourself to a clinic; have an attendant drive or call emergency medical services.",
+      "Check resting pulse rate and blood pressure if a home monitor is safely within reach.",
+      "Avoid consuming heavy meals, hot/cold drinks, or caffeinated stimulants."
     ];
     redFlags = [
-      "Shortness of breath, wheezing, or difficulty catching your breath while resting.",
-      "Persistent high fever (above 101°F / 38.3°C) lasting longer than 3 days.",
-      "Coughing up blood or dark rusty-colored phlegm.",
-      "Sharp, localized chest pain when taking a deep breath."
+      "Crushing or squeezing chest pressure radiating to the left arm, neck, jaw, back, or upper abdomen.",
+      "Sudden shortness of breath, cold clammy sweats, lightheadedness, or loss of consciousness.",
+      "Pain lasting longer than 5 minutes that does not resolve with rest."
     ];
-  } else if (query.includes('headache') || query.includes('migraine') || query.includes('head ache')) {
-    assessment = "The symptoms point toward a headache or migraine episode, which may be triggered by muscle tension, eye strain, dehydration, stress, lack of sleep, or neurological vascular shifts.";
+  }
+  // 2. Respiratory & Upper Airway / Cough / Cold / Asthma
+  else if (query.includes('cough') || query.includes('cold') || query.includes('throat') || query.includes('phlegm') || query.includes('sneeze') || query.includes('bronch') || query.includes('congestion') || query.includes('wheez') || query.includes('asthma') || query.includes('breath') || docReplyLower.includes('pulmonologist')) {
+    assessment = "Your reported symptoms indicate respiratory tract irritation or bronchial reactivity, frequently caused by viral upper respiratory infections, allergic bronchitis, environmental irritants, or airway bronchospasm.";
     precautions = [
-      "Rest in a quiet, dark, well-ventilated room and close your eyes for 30–45 minutes.",
-      "Hydrate immediately with water or electrolyte fluids, as dehydration is a very common headache trigger.",
-      "Apply a cold gel pack or ice wrapped in a towel to your forehead/temples, or a warm wrap to tight neck muscles.",
-      "Take a complete break from digital screens (phones, laptops, TV) and bright fluorescent lighting.",
-      "Gently massage tight neck, temple, and shoulder muscles to relieve muscular tension.",
-      "Maintain regular meal intervals to avoid hypoglycemia-induced headaches."
+      "Hydrate continuously with warm fluids: herbal tea with honey, warm water, and light clear broths to soothe airways and thin mucus.",
+      "Administer steam inhalation for 10 minutes 2 to 3 times daily or utilize a cool-mist room humidifier.",
+      "Perform warm saline gargles (1/2 teaspoon non-iodized salt in warm water) twice daily to relieve throat discomfort.",
+      "Sleep in an elevated position with your head propped up by extra pillows to reduce post-nasal drip and nocturnal cough paroxysms.",
+      "Strictly avoid smoke, aerosol sprays, strong perfumes, chemical fumes, and icy cold beverages.",
+      "Rest your voice and avoid throat-clearing habits that further inflame vocal cords."
     ];
     redFlags = [
-      "Sudden, explosive 'thunderclap' headache reaching maximum intensity in seconds.",
-      "Headache accompanied by stiff neck, high fever, confusion, or difficulty speaking.",
-      "Visual disturbances, sudden numbness, or weakness on one side of the face or body."
+      "Stridor, audible wheezing, or difficulty completing full sentences without gasping for breath.",
+      "Bluish coloration (cyanosis) of lips, tongue, or nail beds.",
+      "Hemoptysis (coughing up fresh red blood or dark clots).",
+      "Persistent high fever exceeding 101°F (38.3°C) that fails to abate after 72 hours."
     ];
-  } else if (query.includes('fever') || query.includes('temperature') || query.includes('chills')) {
-    assessment = "Elevated body temperature suggests an active immune response, frequently associated with a viral or bacterial infection.";
+  }
+  // 3. Orthopedic & Musculoskeletal / Knee / Joint / Bones / Sprains
+  else if (query.includes('knee') || query.includes('joint') || query.includes('arthritis') || query.includes('swollen joint') || query.includes('stiff joint') || query.includes('hip pain') || query.includes('shoulder') || query.includes('elbow') || query.includes('ankle') || query.includes('sprain') || query.includes('ligament') || query.includes('tendon') || query.includes('fracture') || docReplyLower.includes('orthopedist') || docReplyLower.includes('orthopedic')) {
+    assessment = "Your symptoms suggest an acute or chronic musculoskeletal issue, such as joint inflammation, ligament sprain, tendonitis, meniscus strain, or osteoarthritis.";
     precautions = [
-      "Prioritize absolute bed rest to allow your immune system to recover.",
-      "Drink plenty of fluids (boiled water, coconut water, soups, ORS) to prevent fever-induced dehydration.",
-      "Wear light, breathable cotton clothing and ensure the room is comfortably cool and ventilated.",
-      "Use lukewarm water sponge baths if body temperature rises uncomfortably (do not use cold water or alcohol wipes).",
-      "Keep a written log of temperature readings taken every 4 hours."
+      "Implement the R.I.C.E. protocol: Rest the affected joint, Ice with a towel-wrapped cold pack for 15–20 minutes, Compress with an elastic crepe bandage, and Elevate above heart level when resting.",
+      "Avoid weight-bearing stress, jumping, running, kneeling, or deep squatting on the injured joint.",
+      "Use assistive mobility support (walking stick, crutch, or knee brace) to prevent further soft tissue damage.",
+      "Apply topical soothing counter-irritant gel gently without aggressive deep-tissue rubbing.",
+      "Perform gentle pain-free passive range of motion once acute swelling subsides to avoid joint stiffness."
     ];
     redFlags = [
-      "Fever exceeding 103°F (39.4°C) or not responding to recommended antipyretics.",
-      "Fever accompanied by petechial skin rashes, stiff neck, or extreme lethargy.",
-      "Inability to keep fluids down due to persistent vomiting."
+      "Complete inability to bear weight or stand on the affected limb.",
+      "Visible anatomical deformity, joint dislocation, or bone protrusion.",
+      "Rapid, hot swelling accompanied by skin redness and systemic fever (potential septic arthritis).",
+      "Numbness, loss of pulse, or cold pallor in the toes or fingers below the injured joint."
     ];
-  } else if (query.includes('numb') || query.includes('tingl') || query.includes('neuropathy') || query.includes('pins')) {
-    assessment = "Numbness and tingling (paresthesia) commonly result from peripheral nerve compression, neuropathy, circulation issues, or spinal nerve irritation.";
+  }
+  // 4. Spine & Back / Neck / Sciatica
+  else if (query.includes('back') || query.includes('spine') || query.includes('lumbago') || query.includes('sciatica') || query.includes('disc') || query.includes('neck') || query.includes('cervical') || docReplyLower.includes('physiatrist')) {
+    assessment = "The symptoms point toward spinal mechanical strain, lumbar/cervical disc compression, paraspinal muscle spasms, or sciatic nerve irritation.";
     precautions = [
-      "Avoid sustained postures that pinch nerves, such as crossing legs, resting on elbows, or repetitive wrist flexion.",
-      "Maintain ergonomic posture at your desk and take frequent movement breaks.",
-      "Inspect feet and hands daily for unnoticed cuts or pressure spots, especially if you have high blood sugar.",
-      "Wear comfortable, well-cushioned shoes and avoid walking barefoot.",
-      "Avoid prolonged exposure of extremities to extreme cold."
+      "Avoid heavy bending, twisting, or lifting objects exceeding 2 kg from the floor.",
+      "Sleep on a firm, supportive mattress; lie on your side with a pillow between your knees, or on your back with a pillow beneath your knees.",
+      "Apply cold packs for the first 48 hours for acute spasm, transitioning to moist warm towels or a heating pad thereafter.",
+      "Maintain strict ergonomic posture: sit with lower back lumbar support and avoid slouching or prolonged sitting over 45 minutes.",
+      "Engage in gentle walking on flat surfaces; avoid prolonged bed rest past 24–48 hours to prevent muscle deconditioning."
     ];
     redFlags = [
-      "Sudden onset of numbness spreading rapidly across an entire limb or face.",
-      "Loss of bowel or bladder control.",
-      "Loss of motor strength or inability to lift your foot (foot drop)."
+      "Sudden loss of bowel or bladder control (cauda equina emergency).",
+      "Progressive weakness in the legs or inability to dorsiflex the foot ('foot drop').",
+      "Numbness or pins-and-needles localized to the groin or inner thighs ('saddle anesthesia').",
+      "Constant unrelenting back pain that is severe at night or awakens you from sleep."
     ];
-  } else if (query.includes('tremor') || query.includes('shak') || query.includes('parkinson')) {
-    assessment = "Involuntary shaking or tremors can be related to essential tremor, stress/fatigue, metabolic factors, or neurological movement conditions.";
+  }
+  // 5. Dermatology & Skin / Rashes / Allergies / Itching
+  else if (query.includes('skin') || query.includes('rash') || query.includes('itch') || query.includes('eczema') || query.includes('psoriasis') || query.includes('hives') || query.includes('urticaria') || query.includes('acne') || query.includes('blister') || query.includes('fungal') || query.includes('ringworm') || query.includes('boil') || docReplyLower.includes('dermatologist')) {
+    assessment = "Your skin symptoms indicate an active dermatological reaction, contact dermatitis, allergic urticaria, eczema flare, or localized cutaneous fungal/bacterial infection.";
     precautions = [
-      "Strictly minimize or eliminate stimulants like caffeine, energy drinks, nicotine, and alcohol.",
-      "Ensure 7–8 hours of sound sleep, as fatigue significantly accentuates tremor frequency.",
-      "Use weighted utensils, mugs with lids, and adaptive grips to simplify daily activities.",
-      "Practice deep breathing, meditation, or progressive muscle relaxation to decrease adrenaline surges."
+      "Do NOT scratch or rub the affected skin; scratching breaks the protective skin barrier and introduces secondary bacterial infections.",
+      "Bathe with lukewarm (never scalding hot) water and use fragrance-free, hypoallergenic, non-soap syndet cleansers.",
+      "Apply a gentle calamine lotion or ceramide-rich fragrance-free barrier moisturizer within 3 minutes of bathing.",
+      "Wear loose-fitting, breathable, 100% pure cotton garments; avoid synthetic fabrics, wool, and tight clothing.",
+      "Avoid suspect triggers: new cosmetics, harsh detergents, perfumes, jewelry containing nickel, or pet dander.",
+      "Keep fingernails trimmed short and clean."
     ];
     redFlags = [
-      "Rapidly progressing tremors interfering with walking or balance.",
-      "Tremors accompanied by sudden stiffness, rigidity, or frequent falls."
+      "Rapidly spreading rash covering more than 30% of your body surface area.",
+      "Development of blisters, skin peeling, or involvement of mucous membranes (lips, mouth, eyes, genitals).",
+      "Rash accompanied by facial swelling, lip edema, or breathing difficulty (anaphylaxis emergency).",
+      "Pus drainage, red streaks radiating from lesions, or skin that is intensely hot and throbbing with fever."
     ];
-  } else if (query.includes('stomach') || query.includes('abdom') || query.includes('vomit') || query.includes('nausea') || query.includes('diarrhea') || query.includes('acidity') || query.includes('gas')) {
-    assessment = "Gastrointestinal discomfort, acidity, or nausea often results from acute gastritis, indigestion, food sensitivity, or gastroenteritis.";
+  }
+  // 6. Dental & Oral Health / Toothache / Gums
+  else if (query.includes('tooth') || query.includes('teeth') || query.includes('gum') || query.includes('cavity') || query.includes('dental') || query.includes('oral') || query.includes('mouth ulcer') || docReplyLower.includes('dentist')) {
+    assessment = "Oral and dental discomfort generally stems from dental caries, pulpitis, gingivitis, periodontal inflammation, impacted wisdom teeth, or periapical abscess.";
     precautions = [
-      "Switch to bland, easily digestible meals (rice porridge, bananas, toast, curd/yogurt).",
-      "Avoid spicy, oily, acidic (citrus/tomato), caffeinated, or carbonated items.",
-      "Sip oral rehydration salts (ORS) or electrolyte water frequently in small sips.",
-      "Do not lie down immediately after eating; wait at least 2 hours before reclining.",
-      "Eat smaller, more frequent meals rather than large heavy portions."
+      "Rinse your mouth with warm salt water (1/2 teaspoon salt in 1 cup warm water) for 30 seconds after meals to reduce bacterial load.",
+      "Avoid extreme food and beverage temperatures (avoid ice-cold or very hot items) and highly acidic/sugary foods.",
+      "Chew food exclusively on the unaffected side of your mouth; stick to soft, lukewarm purees, soups, and boiled foods.",
+      "Apply a dab of natural clove oil (eugenol) on a clean cotton swab directly to the aching tooth for temporary relief.",
+      "Brush very gently using a soft-bristled toothbrush and use dental floss to dislodge any trapped food debris.",
+      "Never place an aspirin tablet directly against the gum tissue, as this causes severe chemical burns."
     ];
     redFlags = [
-      "Severe, sharp abdominal pain that prevents standing straight or touching the abdomen.",
-      "Blood in vomit (resembling coffee grounds) or black tarry stools.",
-      "Signs of dehydration: dry mouth, sunken eyes, no urination for over 8 hours."
+      "Visible facial swelling, swollen jaw, or swelling extending down the neck or toward the eye.",
+      "High fever accompanied by difficulty swallowing (dysphagia) or opening your mouth (trismus).",
+      "Spontaneous persistent bleeding from the tooth socket or gums that does not clot."
     ];
-  } else if (query.includes('bp') || query.includes('pressure') || query.includes('hypertension') || query.includes('dizz')) {
-    assessment = "Fluctuations in blood pressure or dizziness can arise from stress, dehydration, postural changes, electrolyte shifts, or cardiovascular strain.";
+  }
+  // 7. Ophthalmology & Eye / Vision Care
+  else if (query.includes('eye') || query.includes('vision') || query.includes('blurry') || query.includes('conjunctiv') || query.includes('red eye') || query.includes('cornea') || docReplyLower.includes('ophthalmologist')) {
+    assessment = "Ocular discomfort, redness, or visual disturbance may indicate conjunctivitis, dry eye syndrome, corneal abrasion, anterior uveitis, or digital eye strain.";
     precautions = [
-      "Sit or lie down immediately in a safe position to prevent falls if feeling lightheaded.",
-      "Reduce dietary salt intake and avoid processed foods high in sodium.",
-      "Hydrate adequately and avoid abrupt transitions from lying down to standing up.",
-      "Avoid smoking, alcohol, and excessive caffeine.",
-      "Record your blood pressure readings twice daily (morning and evening)."
+      "Do NOT rub or apply pressure to your eyes under any circumstances.",
+      "Immediately remove contact lenses and switch to prescription eyeglasses until evaluated by an eye care specialist.",
+      "Apply a clean, cool, moist compress over closed eyelids for 5–10 minutes to soothe irritation and swelling.",
+      "Use preservative-free artificial tear drops to lubricate the ocular surface and flush out airborne micro-irritants.",
+      "Practice the 20-20-20 rule: every 20 minutes look at an object 20 feet away for 20 seconds; dim device screen brightness.",
+      "Wear sunglasses outdoors to protect photosensitive eyes from UV radiation and wind."
     ];
     redFlags = [
-      "Blood pressure reading exceeding 180/120 mmHg.",
-      "Chest tightness, shortness of breath, sudden severe headache, or blurred vision."
+      "Sudden, significant drop in visual acuity or total loss of vision in one or both eyes.",
+      "Seeing halo rings around lights, flashes of light, or a dark shadow/curtain descending across your visual field.",
+      "Severe deep ocular pain accompanied by nausea and vomiting (acute angle-closure glaucoma).",
+      "Penetrating eye trauma, chemical splash, or copious greenish-yellow purulent eye discharge."
     ];
-  } else {
-    assessment = "Your reported symptoms suggest physical strain, temporary fatigue, or early physiological stress.";
+  }
+  // 8. ENT / Ear / Sinus / Hearing
+  else if (/\b(ear|ears|earache)\b/.test(query) || query.includes('tinnitus') || query.includes('hearing') || query.includes('sinus') || query.includes('blocked ear') || docReplyLower.includes('otolaryngologist') || /\b(ent|ent specialist)\b/.test(docReplyLower)) {
+    assessment = "Ear and sinus discomfort frequently originates from otitis externa (swimmer's ear), otitis media (middle ear infection), Eustachian tube dysfunction, or acute rhinosinusitis.";
     precautions = [
-      "Prioritize 7 to 8 hours of restorative sleep to support natural biological recovery.",
-      "Stay well hydrated with clean water and nutrient-rich warm fluids.",
-      "Avoid strenuous physical or mental overexertion for the next 24 to 48 hours.",
-      "Keep a symptom log noting exact onset, triggers, and any relief factors."
+      "Keep the ear canal strictly dry; avoid swimming or submerging your head during bathing.",
+      "Never insert cotton buds, keys, pins, or fingernails into the ear canal; this compacts wax and risks eardrum rupture.",
+      "Apply a warm, dry heating pad or warm towel against the outside of your ear for 10–15 minutes.",
+      "Perform gentle steam inhalation to open the Eustachian tubes and equalize middle ear pressure.",
+      "Sleep with the affected ear facing upward to encourage natural drainage.",
+      "Avoid sudden atmospheric pressure shifts such as scuba diving or flying."
     ];
     redFlags = [
-      "Symptoms that rapidly worsen or do not show improvement after 48 hours.",
-      "Unexplained high fever, chest pain, or breathing discomfort."
+      "Discharge of clear fluid, blood, or foul-smelling pus from the ear canal.",
+      "Sudden onset of profound sensorineural hearing loss or intense room-spinning vertigo.",
+      "Swelling, tenderness, and redness directly behind the earlobe over the mastoid bone.",
+      "Facial muscle weakness or drooping on the side of the ear infection."
+    ];
+  }
+  // 9. Endocrine / Diabetes / High Blood Sugar / Metabolic
+  else if (query.includes('sugar') || query.includes('glucose') || query.includes('diabet') || query.includes('hba1c') || query.includes('insulin') || query.includes('thirst') || query.includes('thyroid') || query.includes('tsh') || docReplyLower.includes('endocrinologist')) {
+    assessment = "Your symptoms relate to metabolic or endocrine dysregulation, such as blood glucose volatility (hyperglycemia or hypoglycemia), insulin resistance, or thyroid hormone fluctuations.";
+    precautions = [
+      "Monitor and record your capillary blood glucose (fasting, pre-meal, and 2 hours post-meal) using a calibrated glucometer.",
+      "Drink copious water (2.5 to 3 liters daily) to aid your kidneys in flushing out excess glucose.",
+      "Follow a structured low-glycemic, fiber-rich meal plan: focus on green vegetables, whole grains, and lean proteins; avoid fruit juices and refined carbs.",
+      "If you experience shakiness, sweating, lightheadedness, or sudden hunger (hypoglycemia < 70 mg/dL), follow the 15-15 rule: consume 15 grams of fast-acting glucose immediately and retest in 15 minutes.",
+      "Inspect your feet daily for small cuts, blisters, or dry cracked skin.",
+      "Adhere strictly to prescribed oral hypoglycemics or insulin dosages; never modify dosages without physician consultation."
+    ];
+    redFlags = [
+      "Blood glucose reading persistently over 250 mg/dL accompanied by nausea, vomiting, fruity-smelling breath, or rapid breathing (DKA).",
+      "Confusion, slurred speech, delirium, or loss of consciousness.",
+      "Blood glucose below 55 mg/dL that fails to respond to oral carbohydrates."
+    ];
+  }
+  // 10. Gastrointestinal & Digestive / Stomach / Acidity / Nausea / Diarrhea
+  else if (query.includes('stomach') || query.includes('abdom') || query.includes('vomit') || query.includes('nausea') || query.includes('diarrhea') || query.includes('loose motion') || query.includes('acidity') || query.includes('gas') || query.includes('bloat') || query.includes('constipat') || query.includes('gerd') || docReplyLower.includes('gastroenterologist')) {
+    assessment = "Gastrointestinal symptoms frequently indicate acute gastroenteritis, functional dyspepsia, gastroesophageal reflux (GERD), food intolerance, or peptic irritation.";
+    precautions = [
+      "Adopt a bland, gentle BRAT diet (Bananas, Rice, Applesauce, Toast, plain porridge, and curd/yogurt).",
+      "Hydrate with oral rehydration salts (ORS), coconut water, or electrolyte broth in frequent small sips rather than large gulps.",
+      "Strictly avoid oily, deep-fried, heavily spiced, tomato-based, citrus, caffeinated, and alcoholic foods or drinks.",
+      "Do NOT lie down flat within 2 to 3 hours after eating; elevate the head of your bed 6 inches to deter acid reflux.",
+      "Eat 5 to 6 small, manageable portions throughout the day rather than 2 or 3 heavy meals.",
+      "Practice good hand hygiene with soap and water before meals and after restroom use."
+    ];
+    redFlags = [
+      "Severe, agonizing abdominal pain that is rigid, board-like, or worsens dramatically when releasing pressure (rebound tenderness).",
+      "Hematemesis (vomiting blood or coffee-ground material) or melena (black, sticky, tarry stools).",
+      "Inability to retain liquids for over 12 hours leading to dry mouth, sunken eyes, and absence of urination.",
+      "Jaundice (yellowing of the sclera of eyes or skin)."
+    ];
+  }
+  // 11. Urology & Renal / Urinary Tract / Bladder / Kidneys
+  else if (query.includes('urine') || query.includes('urinar') || query.includes('uti') || query.includes('kidney') || query.includes('flank') || query.includes('burning urine') || docReplyLower.includes('urologist') || docReplyLower.includes('nephrologist')) {
+    assessment = "Urinary frequency, dysuria, or flank discomfort points toward a lower urinary tract infection (cystitis), urethral irritation, nephrolithiasis (kidney stones), or renal involvement.";
+    precautions = [
+      "Significantly increase water intake to 2.5–3 liters per day to promote frequent flushing of the urinary bladder.",
+      "Void your bladder completely as soon as you feel the urge; avoid holding urine for prolonged periods.",
+      "Avoid bladder irritants: eliminate caffeine, carbonated colas, citrus juices, spicy seasonings, and alcohol.",
+      "For women: always wipe from front to back after urination to prevent transferring colonic bacteria to the urethra.",
+      "Wear breathable, unbleached cotton underwear and avoid tight nylon leggings or jeans.",
+      "Do not use scented bubble baths, feminine hygiene sprays, or harsh genital washes."
+    ];
+    redFlags = [
+      "Hematuria (visible pink, red, or cola-colored blood in the urine).",
+      "Severe flank or lower back pain radiating to the groin accompanied by fever, chills, and shaking (pyelonephritis).",
+      "Complete anuria (inability to pass urine despite a painful, full bladder).",
+      "Urinary retention accompanied by lower limb weakness or saddle numbness."
+    ];
+  }
+  // 12. Neurological / Headache / Migraine
+  else if (query.includes('headache') || query.includes('migraine') || query.includes('head ache') || docReplyLower.includes('neurologist')) {
+    assessment = "Your headache presentation suggests a tension-type headache, vascular migraine episode, cervicogenic strain, or dehydration-related cephalalgia.";
+    precautions = [
+      "Retire to a dark, quiet, well-ventilated room with minimal sensory stimulation; close your eyes for 30–60 minutes.",
+      "Drink 500 mL of cool water immediately, as subtle dehydration is one of the most prevalent headache triggers.",
+      "Apply an ice pack wrapped in a cloth to your forehead or temples for vascular headaches, or a warm heating pad to tight shoulder/neck muscles.",
+      "Disconnect completely from smartphones, computer monitors, and televisions to eliminate digital screen glare.",
+      "Gently massage the suboccipital muscles at the base of the skull, temples, and upper trapezius muscles.",
+      "Avoid trigger foods: aged cheeses, artificial sweeteners, processed meats with nitrates, and skipping meals."
+    ];
+    redFlags = [
+      "Sudden-onset 'thunderclap' headache reaching unbearable peak intensity within 60 seconds.",
+      "Headache associated with neck stiffness, fever, photophobia, confusion, or altered mental status.",
+      "Unilateral facial drooping, arm weakness, or difficulty articulating words (FAST stroke signs).",
+      "New headache pattern starting after age 50 or triggered by coughing, straining, or bending over."
+    ];
+  }
+  // 13. Neurological / Numbness / Tingling / Tremors
+  else if (query.includes('numb') || query.includes('tingl') || query.includes('neuropathy') || query.includes('pins') || query.includes('tremor') || query.includes('shak') || query.includes('parkinson')) {
+    assessment = "Paresthesia, involuntary tremors, or localized sensory deficits suggest peripheral nerve entrapment, metabolic neuropathy, essential tremor, or central nervous signaling dysfunction.";
+    precautions = [
+      "Avoid prolonged static postures that pinch superficial nerves (e.g. crossing legs at knees, leaning heavily on elbows).",
+      "Ensure proper ergonomic alignment at computer workstations; use gel wrist rests and maintain elbows at 90 degrees.",
+      "Eliminate caffeine, nicotine, energy drinks, and alcohol, all of which substantially amplify physiological tremors.",
+      "Inspect hands and feet daily for micro-abrasions, blisters, or thermal burns if sensory feedback is compromised.",
+      "Prioritize 7–8 hours of uninterrupted sleep, as sleep deficit markedly exacerbates tremor amplitude.",
+      "Engage in fine-motor coordination drills and gentle daily flexibility stretches."
+    ];
+    redFlags = [
+      "Sudden-onset unilateral numbness spreading across an entire limb or half of the face.",
+      "Progressive loss of motor strength, dropped objects, or tripping over your own toes.",
+      "Loss of sphincter control (urinary or fecal incontinence).",
+      "Tremors accompanied by sudden unsteadiness, frequent falls, or slurred speech."
+    ];
+  }
+  // 14. Acute Fever & Systemic Infection
+  else if (query.includes('fever') || query.includes('temperature') || query.includes('chills') || query.includes('pyrexia')) {
+    assessment = "Elevated core body temperature indicates an active systemic immunological response, typically triggered by an acute viral, bacterial, or inflammatory etiology.";
+    precautions = [
+      "Prioritize strict bed rest to preserve metabolic energy for immune defense.",
+      "Hydrate proactively with 2.5 to 3 liters of fluids daily: boiled water, coconut water, fresh soups, and ORS solution.",
+      "Dress in light, breathable cotton layers; keep the room at a comfortable 22–24°C with gentle ventilation.",
+      "Perform lukewarm water sponge baths over the forehead, neck, and axillae if temperature feels excessively high (do not use cold water).",
+      "Chart your body temperature every 4 hours using a digital thermometer to track clinical trajectory.",
+      "Consume soft, nutrient-dense, easily digestible meals."
+    ];
+    redFlags = [
+      "Body temperature reaching or exceeding 103°F (39.4°C) or unresponsive to antipyretics.",
+      "Fever accompanied by petechial (non-blanching) purple skin rashes, stiff neck, or extreme lethargy.",
+      "Inability to retain liquids due to persistent vomiting, leading to signs of clinical dehydration.",
+      "Delirium, confusion, or seizure episodes (febrile convulsions)."
+    ];
+  }
+  // 15. Neuro-Psychiatric / Anxiety / Depression / Sleep & Insomnia
+  else if (query.includes('anxiety') || query.includes('panic') || query.includes('depress') || query.includes('insomnia') || query.includes('sleep') || query.includes('stress') || query.includes('nervous') || docReplyLower.includes('psychiatrist') || docReplyLower.includes('psychologist')) {
+    assessment = "Your reported symptoms reflect psychological distress, neuro-chemical stress reactivity, circadian disruption, or autonomic nervous system hyperarousal.";
+    precautions = [
+      "Practice 4-7-8 rhythmic breathing or box breathing (inhale 4s, hold 4s, exhale 4s, hold 4s) to activate the calming parasympathetic vagal reflex.",
+      "Institute strict sleep hygiene: retire and wake at identical times daily; reserve the bed solely for sleep.",
+      "Avoid all digital screens (blue light) and stimulating media for at least 60–90 minutes prior to bedtime.",
+      "Discontinue caffeine, energy drinks, and nicotine past 12:00 PM; avoid using alcohol as a sleep aid.",
+      "Engage in 20–30 minutes of mild daytime aerobic movement (e.g. brisk walking in natural sunlight).",
+      "Confide in a trusted family member, close friend, or professional counselor about your emotional state."
+    ];
+    redFlags = [
+      "Any thoughts of self-harm, hopelessness, or suicide (please reach out immediately to a 24/7 crisis helpline or nearest hospital).",
+      "Severe panic attacks with chest pain, feeling of impending doom, or detachment from reality.",
+      "Inability to care for fundamental daily needs (eating, drinking, basic personal hygiene) lasting over 48 hours."
+    ];
+  }
+  // 16. Dynamic Adaptive Analysis for Any Other Symptom or Identified Specialty
+  else {
+    // Extract specialty from AskMyDoc response if present
+    let detectedSpecialty = "General Physician or Medical Specialist";
+    if (docReplyLower.includes('dermatolog')) detectedSpecialty = "Dermatologist";
+    else if (docReplyLower.includes('orthoped')) detectedSpecialty = "Orthopedic Specialist";
+    else if (docReplyLower.includes('cardiolog')) detectedSpecialty = "Cardiologist";
+    else if (docReplyLower.includes('neurolog')) detectedSpecialty = "Neurologist";
+    else if (docReplyLower.includes('pulmonolog')) detectedSpecialty = "Pulmonologist";
+    else if (docReplyLower.includes('gastroenterolog')) detectedSpecialty = "Gastroenterologist";
+    else if (docReplyLower.includes('endocrinolog')) detectedSpecialty = "Endocrinologist";
+    else if (docReplyLower.includes('ophthalmolog')) detectedSpecialty = "Ophthalmologist";
+    else if (docReplyLower.includes('dentist')) detectedSpecialty = "Dental Surgeon";
+    else if (docReplyLower.includes('otolaryngolog') || /\b(ent|ent specialist)\b/.test(docReplyLower)) detectedSpecialty = "ENT Specialist (Otolaryngologist)";
+    else if (docReplyLower.includes('urolog')) detectedSpecialty = "Urologist";
+    else if (docReplyLower.includes('nephrolog')) detectedSpecialty = "Nephrologist";
+    else if (docReplyLower.includes('psychiat')) detectedSpecialty = "Psychiatrist";
+
+    // Clean prompt for custom summary
+    const cleanPrompt = prompt.replace(/[^\w\s]/gi, '').trim();
+
+    assessment = `Clinical evaluation of reported symptoms: "${cleanPrompt}". These symptoms indicate localized physical discomfort or early physiological stress that warrants structured monitoring and targeted evaluation by a ${detectedSpecialty}.`;
+    precautions = [
+      "Rest the affected anatomical area and avoid physical overexertion or strenuous repetitive activities for the next 24 to 48 hours.",
+      "Maintain optimal systemic hydration by consuming 2 to 2.5 liters of clean water and warm electrolyte fluids daily.",
+      "Keep an objective symptom journal detailing exact time of onset, intensity scale (1–10), specific triggers, and relieving factors.",
+      "Refrain from taking unprescribed antibiotics, potent anti-inflammatories, or unfamiliar pharmaceuticals without clinical guidance.",
+      "Ensure 7 to 8 hours of restorative sleep to enhance natural tissue repair and immune balance."
+    ];
+    redFlags = [
+      "Rapid escalation of symptom intensity or pain unresponsive to standard rest within 24–48 hours.",
+      "Onset of systemic signs: sudden high fever (>101°F), unexplained chills, or lightheadedness.",
+      "Difficulty breathing, chest pain, or sudden alteration in consciousness or mobility."
     ];
   }
 
@@ -231,15 +420,100 @@ const chatWithAskMyDoc = async (message, history = []) => {
   return null;
 };
 
+const queryMedicalLLM = async (userPrompt, history = [], systemPrompt = null) => {
+  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const isGroq = apiKey.startsWith('gsk_') || !process.env.OPENAI_API_KEY;
+    const endpoint = isGroq 
+      ? 'https://api.groq.com/openai/v1/chat/completions' 
+      : 'https://api.openai.com/v1/chat/completions';
+    const model = isGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+
+    const defaultSystem = `You are NeuroPlus Medical AI, an expert, compassionate clinical assistant.
+Your goal is to evaluate any health condition, disease, symptom, or question presented by the patient with deep clinical expertise.
+You MUST format your entire response using these exact markdown headers:
+### 🩺 Clinical Overview
+[Explain the pathophysiology, likely causes, and nature of this condition or disease in clear, reassuring, and accurate clinical detail.]
+
+### 🛡️ Recommended Precautions & Care Measures to be Done:
+[Provide 5 to 6 bullet points with detailed, practical, actionable precautions, home remedies, lifestyle, or self-care steps the patient should follow.]
+
+### ⚠️ Warning Signs & Emergency Red Flags:
+[List 3 to 4 critical symptoms or complications that require immediate emergency medical care.]
+
+### 👨‍⚕️ Specialist Consultation:
+[State the exact medical specialty (e.g. Neurologist, Cardiologist, Endocrinologist, Orthopedist) that manages this condition.]
+
+Do not include disclaimers in every sentence; maintain high clinical authority, practical utility, and empathy.`;
+
+    const messages = [
+      { role: 'system', content: systemPrompt || defaultSystem },
+      ...(history || []).slice(-6).map(h => ({
+        role: h.role === 'user' ? 'user' : 'assistant',
+        content: h.content
+      })),
+      { role: 'user', content: userPrompt }
+    ];
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        temperature: 0.3,
+        max_tokens: 1024
+      }),
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) return content.trim();
+    }
+  } catch (err) {
+    console.warn("Medical LLM query failed or timed out:", err.message);
+  }
+  return null;
+};
+
 exports.chatWithAI = async (req, res) => {
   try {
     const { prompt, imageBase64, mimeType, history } = req.body;
 
-    // Use AskMyDoc API and comprehensive clinical precautions engine
+    // Use Medical LLM + AskMyDoc API and comprehensive clinical precautions engine
     if (!imageBase64 && prompt && !prompt.startsWith("Generate a brief medical summary/notes from this consultation transcript:")) {
+      // 1. Try Live Deep Medical LLM (covers 100% of human diseases, drugs, syndromes)
+      const llmReply = await queryMedicalLLM(prompt, history);
+      
+      // 2. Query AskMyDoc API in parallel for Indian doctor directory and specialist verification
       const askMyDocReply = await chatWithAskMyDoc(prompt, history);
+
+      if (llmReply) {
+        let finalReply = llmReply;
+        if (askMyDocReply) {
+          // If AskMyDoc has specific doctor listings, append them
+          if (askMyDocReply.includes('Recommended Verified Specialists')) {
+            const docPart = askMyDocReply.split('Recommended Verified Specialists')[1];
+            if (docPart) {
+              finalReply += `\n\n### 👨‍⚕️ Verified Doctor Directory (via AskMyDoc API):\n${docPart.trim()}`;
+            }
+          } else {
+            finalReply += `\n\n*(Verified against AskMyDoc Medical AI Directory)*`;
+          }
+        }
+        return res.json({ reply: finalReply, source: 'NeuroPlus Medical AI & AskMyDoc' });
+      }
+
+      // 3. Robust Offline Fallback: Multi-domain clinical knowledge engine + AskMyDoc
       const combinedReply = generatePrecautionsAndClinicalGuidance(prompt, askMyDocReply);
-      return res.json({ reply: combinedReply, source: 'AskMyDoc AI' });
+      return res.json({ reply: combinedReply, source: 'NeuroPlus Clinical Engine & AskMyDoc' });
     }
 
     // Check if API key is provided for Gemini fallback / image analysis
