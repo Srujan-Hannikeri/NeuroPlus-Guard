@@ -79,7 +79,7 @@ const Reports = () => {
       const { data } = await api.put(`/reports/${reportId}/summary`);
       setReports(reports.map(r => r._id === reportId ? data : r));
     } catch (error) {
-      alert("Failed to generate AI description. Ensure API key is set.");
+      alert(error.response?.data?.message || "Failed to analyze report with AskMyDoc AI. Please try again.");
       fetchReports();
     }
   };
@@ -173,29 +173,30 @@ const Reports = () => {
 
 const ReportCard = ({ report, speakText, onGenerate, userRole }) => (
   <div style={{ padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '8px', background: '#fff' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-      <h4 style={{ color: 'var(--text-main)' }}>Report from {new Date(report.createdAt).toLocaleDateString()}</h4>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        {userRole === 'Doctor' && (
-           <button 
-             onClick={onGenerate}
-             disabled={report.aiSummary === 'Generating...'}
-             className="btn-primary" 
-             style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#3b82f6' }}>
-             {report.aiSummary === 'Generating...' ? 'Analyzing...' : '✨ Analyze with AskMyDoc AI'}
-           </button>
-        )}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+      <h4 style={{ color: 'var(--text-main)', margin: 0 }}>Report from {new Date(report.createdAt).toLocaleDateString()}</h4>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <button 
+          onClick={onGenerate}
+          disabled={report.aiSummary === 'Generating...'}
+          className="btn-primary" 
+          style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+          {report.aiSummary === 'Generating...' ? '⏳ Analyzing...' : (report.aiSummary && !report.aiSummary.startsWith('Analysis pending') ? '🔄 Re-Analyze with AskMyDoc' : '✨ Analyze with AskMyDoc AI')}
+        </button>
         <button 
           onClick={() => speakText(report.aiSummary || "Analysis pending")}
           className="btn-primary" 
-          style={{ padding: '4px 12px', fontSize: '0.8rem', background: 'var(--secondary)' }}>
+          style={{ padding: '6px 14px', fontSize: '0.82rem', background: 'var(--secondary)', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer' }}>
           🔊 Speak
         </button>
       </div>
     </div>
-    <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.6', background: '#f8fafc', padding: '12px', borderRadius: '6px', whiteSpace: 'pre-line' }}>
-      <strong style={{ color: 'var(--primary)' }}>AI Summary (AskMyDoc):</strong>
-      <p style={{ margin: '6px 0 0 0' }}>{report.aiSummary || 'Analysis pending...'}</p>
+    <div style={{ fontSize: '0.9rem', color: '#334155', lineHeight: '1.65', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+        <span style={{ fontSize: '1.1rem' }}>🤖</span>
+        <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>AskMyDoc Clinical Analysis & Precautions:</strong>
+      </div>
+      <div style={{ margin: '0', whiteSpace: 'pre-wrap', color: '#1e293b' }}>{report.aiSummary || 'Analysis pending...'}</div>
     </div>
     <a href={report.fileUrl?.startsWith('data:') ? report.fileUrl : `${API_URL}${report.fileUrl}`} download={report.fileUrl?.startsWith('data:') ? 'report' : undefined} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '12px', color: 'var(--primary)', textDecoration: 'none', fontWeight: 'bold' }}>
       View Original File

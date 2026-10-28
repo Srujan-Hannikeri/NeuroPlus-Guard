@@ -64,21 +64,26 @@ const verifyDoctorWithAskMyDoc = async ({ regNumber, doctorName, stateCouncil, y
     }
 
     if (data && data.verified === false) {
+      let rawMsg = data.message || data.error || '';
+      let friendlyMessage = `No verified doctor found with Registration Number "${trimmedReg}". Please verify your registration number and State Medical Council.`;
+      if (rawMsg && !/404|portal|not found|http/i.test(rawMsg)) {
+        friendlyMessage = rawMsg;
+      }
       return {
         verified: false,
-        message: data.message || data.error || 'Doctor credentials could not be verified in the medical registry via AskMyDoc API.'
+        message: friendlyMessage
       };
     }
 
     return {
       verified: false,
-      message: 'AskMyDoc API verification failed or returned an unexpected response.'
+      message: `No verified doctor found with Registration Number "${trimmedReg}". Please check your registration details.`
     };
   } catch (error) {
     console.error('AskMyDoc API verification error:', error.message);
     return {
       verified: false,
-      message: `AskMyDoc API error: ${error.message}`
+      message: `Unable to verify with AskMyDoc medical register: ${error.name === 'TimeoutError' ? 'Verification service timed out' : 'Service currently unreachable'}. Please try again.`
     };
   }
 };

@@ -1,68 +1,141 @@
 const { GoogleGenAI } = require('@google/genai');
 const fs = require('fs');
 
-const analyzeSymptomsOffline = (prompt) => {
+const generatePrecautionsAndClinicalGuidance = (prompt, askMyDocReply) => {
   const query = (prompt || '').toLowerCase();
-  let analysis = "";
-  let recommendations = [];
-  
-  if (query.includes('headache') || query.includes('migraine')) {
-    analysis = "The description suggests a headache or migraine condition. This could be triggered by neurological factors, fatigue, dehydration, stress, or tension.";
-    recommendations = [
-      "Rest in a quiet, dark, and cool room.",
-      "Stay hydrated by drinking plenty of water or electrolyte fluids.",
-      "Apply a cold compress to your forehead or a warm wrap to your neck.",
-      "Track your headache patterns, duration, and triggers (e.g., foods, stress, sleep changes) to share with your neurologist."
+  let assessment = "";
+  let precautions = [];
+  let redFlags = [];
+
+  if (query.includes('cough') || query.includes('cold') || query.includes('throat') || query.includes('phlegm') || query.includes('sneeze') || query.includes('bronch') || query.includes('congestion')) {
+    assessment = "Your symptoms indicate respiratory or throat irritation, commonly caused by viral upper respiratory infections, allergic bronchitis, dry indoor air, or dust exposure.";
+    precautions = [
+      "Stay well-hydrated: Drink warm water, clear broths, or herbal teas with honey and ginger to soothe irritated airways.",
+      "Practice steam inhalation 2 to 3 times daily or run a room humidifier to loosen chest congestion.",
+      "Gargle with warm salt water (half teaspoon salt in warm water) twice daily to reduce throat inflammation.",
+      "Avoid cold beverages, deep-fried foods, cigarette smoke, and exposure to sudden changes in air temperature.",
+      "Sleep with your head slightly elevated using an extra pillow to prevent nocturnal coughing attacks.",
+      "Rest your voice and avoid straining your throat."
     ];
-  } else if (query.includes('seizure') || query.includes('epilepsy') || query.includes('convulsion') || query.includes('fit')) {
-    analysis = "This description relates to seizure activity or epilepsy, which requires immediate attention and professional neurological evaluation.";
-    recommendations = [
-      "Ensure a safe home environment to prevent physical injury during episodes.",
-      "Take prescribed anti-epileptic medications strictly on time.",
-      "Keep a detailed log of seizure frequency, duration, symptoms, and potential triggers.",
-      "Seek emergency medical assistance immediately if a seizure lasts longer than 5 minutes or if multiple seizures occur in a row."
+    redFlags = [
+      "Shortness of breath, wheezing, or difficulty catching your breath while resting.",
+      "Persistent high fever (above 101°F / 38.3°C) lasting longer than 3 days.",
+      "Coughing up blood or dark rusty-colored phlegm.",
+      "Sharp, localized chest pain when taking a deep breath."
     ];
-  } else if (query.includes('tremor') || query.includes('shak') || query.includes('parkinson')) {
-    analysis = "Tremors or shaking movements can be associated with essential tremor, Parkinson's disease, or physiological factors like stress or anxiety.";
-    recommendations = [
-      "Limit caffeine, alcohol, and other neurological stimulants.",
-      "Use weighted utensils or tools if tremors affect daily tasks like eating.",
-      "Engage in regular physical therapy or movement exercises to support muscle control.",
-      "Schedule a consultation with a neurologist specializing in movement disorders."
+  } else if (query.includes('headache') || query.includes('migraine') || query.includes('head ache')) {
+    assessment = "The symptoms point toward a headache or migraine episode, which may be triggered by muscle tension, eye strain, dehydration, stress, lack of sleep, or neurological vascular shifts.";
+    precautions = [
+      "Rest in a quiet, dark, well-ventilated room and close your eyes for 30–45 minutes.",
+      "Hydrate immediately with water or electrolyte fluids, as dehydration is a very common headache trigger.",
+      "Apply a cold gel pack or ice wrapped in a towel to your forehead/temples, or a warm wrap to tight neck muscles.",
+      "Take a complete break from digital screens (phones, laptops, TV) and bright fluorescent lighting.",
+      "Gently massage tight neck, temple, and shoulder muscles to relieve muscular tension.",
+      "Maintain regular meal intervals to avoid hypoglycemia-induced headaches."
+    ];
+    redFlags = [
+      "Sudden, explosive 'thunderclap' headache reaching maximum intensity in seconds.",
+      "Headache accompanied by stiff neck, high fever, confusion, or difficulty speaking.",
+      "Visual disturbances, sudden numbness, or weakness on one side of the face or body."
+    ];
+  } else if (query.includes('fever') || query.includes('temperature') || query.includes('chills')) {
+    assessment = "Elevated body temperature suggests an active immune response, frequently associated with a viral or bacterial infection.";
+    precautions = [
+      "Prioritize absolute bed rest to allow your immune system to recover.",
+      "Drink plenty of fluids (boiled water, coconut water, soups, ORS) to prevent fever-induced dehydration.",
+      "Wear light, breathable cotton clothing and ensure the room is comfortably cool and ventilated.",
+      "Use lukewarm water sponge baths if body temperature rises uncomfortably (do not use cold water or alcohol wipes).",
+      "Keep a written log of temperature readings taken every 4 hours."
+    ];
+    redFlags = [
+      "Fever exceeding 103°F (39.4°C) or not responding to recommended antipyretics.",
+      "Fever accompanied by petechial skin rashes, stiff neck, or extreme lethargy.",
+      "Inability to keep fluids down due to persistent vomiting."
     ];
   } else if (query.includes('numb') || query.includes('tingl') || query.includes('neuropathy') || query.includes('pins')) {
-    analysis = "Numbness or tingling (paresthesia) often indicates nerve irritation, spinal compression, or peripheral neuropathy.";
-    recommendations = [
-      "Avoid keeping limbs in positions that compress nerves (e.g. crossing legs, resting on elbows) for long periods.",
-      "Maintain good ergonomic posture during daily activities.",
-      "Monitor blood sugar levels closely, as peripheral neuropathy is a common complication of diabetes.",
-      "Consult a doctor or neurologist for nerve conduction velocity (NCV) testing if symptoms persist."
+    assessment = "Numbness and tingling (paresthesia) commonly result from peripheral nerve compression, neuropathy, circulation issues, or spinal nerve irritation.";
+    precautions = [
+      "Avoid sustained postures that pinch nerves, such as crossing legs, resting on elbows, or repetitive wrist flexion.",
+      "Maintain ergonomic posture at your desk and take frequent movement breaks.",
+      "Inspect feet and hands daily for unnoticed cuts or pressure spots, especially if you have high blood sugar.",
+      "Wear comfortable, well-cushioned shoes and avoid walking barefoot.",
+      "Avoid prolonged exposure of extremities to extreme cold."
     ];
-  } else if (query.includes('forget') || query.includes('memory') || query.includes('alzheimer') || query.includes('dementia') || query.includes('confus')) {
-    analysis = "Memory changes or confusion can stem from stress, sleep issues, vitamin deficiencies, or neurodegenerative conditions like Alzheimer's or dementia.";
-    recommendations = [
-      "Keep a structured daily routine and use tools like calendars, sticky notes, or medication organizers.",
-      "Engage in brain-stimulating exercises like reading, puzzles, or new hobbies.",
-      "Maintain active social connections and physical activity.",
-      "Consult a doctor for a formal cognitive evaluation and blood tests to rule out reversible causes."
+    redFlags = [
+      "Sudden onset of numbness spreading rapidly across an entire limb or face.",
+      "Loss of bowel or bladder control.",
+      "Loss of motor strength or inability to lift your foot (foot drop)."
+    ];
+  } else if (query.includes('tremor') || query.includes('shak') || query.includes('parkinson')) {
+    assessment = "Involuntary shaking or tremors can be related to essential tremor, stress/fatigue, metabolic factors, or neurological movement conditions.";
+    precautions = [
+      "Strictly minimize or eliminate stimulants like caffeine, energy drinks, nicotine, and alcohol.",
+      "Ensure 7–8 hours of sound sleep, as fatigue significantly accentuates tremor frequency.",
+      "Use weighted utensils, mugs with lids, and adaptive grips to simplify daily activities.",
+      "Practice deep breathing, meditation, or progressive muscle relaxation to decrease adrenaline surges."
+    ];
+    redFlags = [
+      "Rapidly progressing tremors interfering with walking or balance.",
+      "Tremors accompanied by sudden stiffness, rigidity, or frequent falls."
+    ];
+  } else if (query.includes('stomach') || query.includes('abdom') || query.includes('vomit') || query.includes('nausea') || query.includes('diarrhea') || query.includes('acidity') || query.includes('gas')) {
+    assessment = "Gastrointestinal discomfort, acidity, or nausea often results from acute gastritis, indigestion, food sensitivity, or gastroenteritis.";
+    precautions = [
+      "Switch to bland, easily digestible meals (rice porridge, bananas, toast, curd/yogurt).",
+      "Avoid spicy, oily, acidic (citrus/tomato), caffeinated, or carbonated items.",
+      "Sip oral rehydration salts (ORS) or electrolyte water frequently in small sips.",
+      "Do not lie down immediately after eating; wait at least 2 hours before reclining.",
+      "Eat smaller, more frequent meals rather than large heavy portions."
+    ];
+    redFlags = [
+      "Severe, sharp abdominal pain that prevents standing straight or touching the abdomen.",
+      "Blood in vomit (resembling coffee grounds) or black tarry stools.",
+      "Signs of dehydration: dry mouth, sunken eyes, no urination for over 8 hours."
+    ];
+  } else if (query.includes('bp') || query.includes('pressure') || query.includes('hypertension') || query.includes('dizz')) {
+    assessment = "Fluctuations in blood pressure or dizziness can arise from stress, dehydration, postural changes, electrolyte shifts, or cardiovascular strain.";
+    precautions = [
+      "Sit or lie down immediately in a safe position to prevent falls if feeling lightheaded.",
+      "Reduce dietary salt intake and avoid processed foods high in sodium.",
+      "Hydrate adequately and avoid abrupt transitions from lying down to standing up.",
+      "Avoid smoking, alcohol, and excessive caffeine.",
+      "Record your blood pressure readings twice daily (morning and evening)."
+    ];
+    redFlags = [
+      "Blood pressure reading exceeding 180/120 mmHg.",
+      "Chest tightness, shortness of breath, sudden severe headache, or blurred vision."
     ];
   } else {
-    analysis = "Based on your description, the symptoms could be related to physical strain, temporary fatigue, stress, or mild dehydration.";
-    recommendations = [
-      "Ensure you get adequate rest and drink plenty of fluids.",
-      "Monitor your condition and avoid strenuous physical or cognitive tasks for the next 24 hours.",
-      "If you experience worsening symptoms, severe pain, chest tightness, or breathing difficulties, seek immediate medical care."
+    assessment = "Your reported symptoms suggest physical strain, temporary fatigue, or early physiological stress.";
+    precautions = [
+      "Prioritize 7 to 8 hours of restorative sleep to support natural biological recovery.",
+      "Stay well hydrated with clean water and nutrient-rich warm fluids.",
+      "Avoid strenuous physical or mental overexertion for the next 24 to 48 hours.",
+      "Keep a symptom log noting exact onset, triggers, and any relief factors."
+    ];
+    redFlags = [
+      "Symptoms that rapidly worsen or do not show improvement after 48 hours.",
+      "Unexplained high fever, chest pain, or breathing discomfort."
     ];
   }
-  
-  return `[NeuroPlus AI Offline Assessment]
-Based on your input, here is a simulated clinical assessment of your symptoms:
 
-- **Potential Analysis**: ${analysis}
-- **Recommendations**:
-${recommendations.map(r => `  * ${r}`).join('\n')}
+  let finalOutput = `### 🩺 Clinical Overview
+${assessment}
 
-*Disclaimer: This is an automated assessment running in offline fallback mode because the live AI service is currently unavailable. Please consult one of our platform doctors for an accurate medical diagnosis.*`;
+### 🛡️ Recommended Precautions & Care Measures to be Done:
+${precautions.map(p => `• ${p}`).join('\n')}
+
+### ⚠️ Warning Signs & Emergency Red Flags:
+${redFlags.map(r => `• ${r}`).join('\n')}
+
+### 👨‍⚕️ Specialist Consultation (via AskMyDoc API):
+${askMyDocReply || 'Consult a qualified General Physician or specialist to receive a personalized medical examination.'}`;
+
+  return finalOutput;
+};
+
+const analyzeSymptomsOffline = (prompt) => {
+  return generatePrecautionsAndClinicalGuidance(prompt, null);
 };
 
 const generateOfflineConsultationNotes = (prompt) => {
@@ -162,12 +235,11 @@ exports.chatWithAI = async (req, res) => {
   try {
     const { prompt, imageBase64, mimeType, history } = req.body;
 
-    // Use AskMyDoc API for text clinical chat
+    // Use AskMyDoc API and comprehensive clinical precautions engine
     if (!imageBase64 && prompt && !prompt.startsWith("Generate a brief medical summary/notes from this consultation transcript:")) {
       const askMyDocReply = await chatWithAskMyDoc(prompt, history);
-      if (askMyDocReply) {
-        return res.json({ reply: askMyDocReply, source: 'AskMyDoc AI' });
-      }
+      const combinedReply = generatePrecautionsAndClinicalGuidance(prompt, askMyDocReply);
+      return res.json({ reply: combinedReply, source: 'AskMyDoc AI' });
     }
 
     // Check if API key is provided for Gemini fallback / image analysis
