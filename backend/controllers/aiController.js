@@ -1,5 +1,6 @@
 const { GoogleGenAI } = require('@google/genai');
 const fs = require('fs');
+const { evaluateMedicalCondition } = require('../utils/medicalDoctorService');
 
 const generatePrecautionsAndClinicalGuidance = (prompt, askMyDocReply) => {
   const query = (prompt || '').toLowerCase();
@@ -317,7 +318,7 @@ ${precautions.map(p => `• ${p}`).join('\n')}
 ⚠️ Warning Signs & Emergency Red Flags:
 ${redFlags.map(r => `• ${r}`).join('\n')}
 
-👨‍⚕️ Specialist Consultation (via AskMyDoc API):
+👨‍⚕️ Specialist Consultation:
 ${askMyDocReply || 'Consult a qualified General Physician or specialist to receive a personalized medical examination.'}`;
 
   return finalOutput;
@@ -409,7 +410,7 @@ const chatWithAskMyDoc = async (message, history = []) => {
           const docList = data.results
             .map(d => `• **${d.name || d.first_name + ' ' + d.last_name}** (${d.specialty || 'Medical Specialist'})`)
             .join('\n');
-          fullReply += `\n\n**Recommended Verified Specialists (via AskMyDoc):**\n${docList}`;
+          fullReply += `\n\n**Recommended Verified Specialists:**\n${docList}`;
         }
         return fullReply;
       }
@@ -487,33 +488,10 @@ exports.chatWithAI = async (req, res) => {
   try {
     const { prompt, imageBase64, mimeType, history } = req.body;
 
-    // Use Medical LLM + AskMyDoc API and comprehensive clinical precautions engine
+    // Use comprehensive clinical disease recognizer and targeted doctor matcher
     if (!imageBase64 && prompt && !prompt.startsWith("Generate a brief medical summary/notes from this consultation transcript:")) {
-      // 1. Try Live Deep Medical LLM (covers 100% of human diseases, drugs, syndromes)
-      const llmReply = await queryMedicalLLM(prompt, history);
-      
-      // 2. Query AskMyDoc API in parallel for Indian doctor directory and specialist verification
-      const askMyDocReply = await chatWithAskMyDoc(prompt, history);
-
-      if (llmReply) {
-        let finalReply = llmReply;
-        if (askMyDocReply) {
-          // If AskMyDoc has specific doctor listings, append them
-          if (askMyDocReply.includes('Recommended Verified Specialists')) {
-            const docPart = askMyDocReply.split('Recommended Verified Specialists')[1];
-            if (docPart) {
-              finalReply += `\n\n### 👨‍⚕️ Verified Doctor Directory (via AskMyDoc API):\n${docPart.trim()}`;
-            }
-          } else {
-            finalReply += `\n\n*(Verified against AskMyDoc Medical AI Directory)*`;
-          }
-        }
-        return res.json({ reply: finalReply, source: 'NeuroPlus Medical AI & AskMyDoc' });
-      }
-
-      // 3. Robust Offline Fallback: Multi-domain clinical knowledge engine + AskMyDoc
-      const combinedReply = generatePrecautionsAndClinicalGuidance(prompt, askMyDocReply);
-      return res.json({ reply: combinedReply, source: 'NeuroPlus Clinical Engine & AskMyDoc' });
+      const evaluation = await evaluateMedicalCondition(prompt);
+      return res.json({ reply: evaluation, source: 'NeuroPlus Medical AI' });
     }
 
     // Check if API key is provided for Gemini fallback / image analysis

@@ -152,7 +152,7 @@ const Profile = () => {
                         </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>AskMyDoc Verification:</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Medical Council Verification:</span>
                         <span style={{ fontWeight: 'bold', color: user?.verificationStatus === 'Verified' ? '#10b981' : '#f59e0b' }}>
                             {user?.verificationStatus === 'Verified' ? '✓ Verified Practitioner' : (user?.verificationStatus || 'Pending')}
                         </span>

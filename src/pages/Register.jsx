@@ -309,7 +309,7 @@ const Register = () => {
                     fontWeight: "bold",
                     color: "var(--primary)",
                   }}>
-                  AskMyDoc Verification
+                  Medical Council Verification
                 </span>
                 <span
                   style={{
@@ -329,8 +329,7 @@ const Register = () => {
                   color: "var(--text-muted)",
                   margin: 0,
                 }}>
-                Every doctor must be verified through the AskMyDoc API against
-                official medical council registers.
+                Every doctor must be verified against official medical council registers.
               </p>
 
               <input
@@ -385,8 +384,8 @@ const Register = () => {
                   cursor: isVerifying ? "wait" : "pointer",
                 }}>
                 {isVerifying ?
-                  "🔍 Verifying via AskMyDoc API..."
-                : "✓ Test Verification with AskMyDoc"}
+                  "🔍 Verifying Medical Registration..."
+                : "✓ Verify Medical Registration"}
               </button>
 
               {verificationResult && (
@@ -402,7 +401,7 @@ const Register = () => {
                   }}>
                   {verificationResult.verified ?
                     <div>
-                      <strong>✓ AskMyDoc Verified!</strong>
+                      <strong>✓ Doctor Registration Verified!</strong>
                       <div>Name: {verificationResult.name}</div>
                       <div>Council: {verificationResult.state_council}</div>
                       <div>

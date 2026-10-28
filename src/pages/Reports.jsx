@@ -22,25 +22,11 @@ const REPORT_CATEGORIES = [
   'Orthopedic Imaging & Bone Health (X-Ray / DEXA)'
 ];
 
-const QUICK_DISEASES = [
-  { label: '🦟 Dengue Fever', name: 'Dengue Fever / Platelet Report', cat: 'Complete Blood Count & Hematology (CBC)' },
-  { label: '🩸 CBC Blood Test', name: 'Complete Blood Count', cat: 'Complete Blood Count & Hematology (CBC)' },
-  { label: '🧠 Brain MRI / CT', name: 'Brain MRI Scan', cat: 'Neurological & Spine Imaging (MRI / CT / EEG)' },
-  { label: '❤️ ECG Heart', name: 'ECG Cardiac Report', cat: 'Cardiology Diagnostics (ECG / Echocardiogram)' },
-  { label: '🍬 Diabetes / Sugar', name: 'Diabetes HbA1c & Fasting Glucose', cat: 'Glycemic & Diabetic Panel (Blood Sugar / HbA1c)' },
-  { label: '🧪 Liver LFT', name: 'Liver Function Test', cat: 'Liver Function Test (LFT) & Hepatic Panel' },
-  { label: '🫁 Chest X-Ray', name: 'Chest X-Ray / Lung Report', cat: 'Chest X-Ray & Pulmonary Diagnostic Report' },
-  { label: '🦠 Typhoid / Viral', name: 'Typhoid & Febrile Panel', cat: 'Complete Blood Count & Hematology (CBC)' }
-];
-
 const Reports = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [file, setFile] = useState(null);
-  const [diseaseName, setDiseaseName] = useState('');
-  const [category, setCategory] = useState(REPORT_CATEGORIES[0]);
-  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -72,17 +58,11 @@ const Reports = () => {
         await api.post('/reports/upload', {
           fileBase64: base64data,
           fileType: file.type,
-          fileName: file.name,
-          category: category.startsWith('Auto-Detect') ? (diseaseName || '') : category,
-          notes: notes.trim(),
-          reportTitle: diseaseName.trim() || file.name
+          fileName: file.name
         });
         
-        alert('Report uploaded & analyzed with AskMyDoc AI!');
+        alert('Report uploaded & analyzed by NeuroPlus AI!');
         setFile(null);
-        setDiseaseName('');
-        setNotes('');
-        setCategory(REPORT_CATEGORIES[0]);
         fetchReports();
         setLoading(false);
       };
@@ -118,7 +98,7 @@ const Reports = () => {
       const { data } = await api.put(`/reports/${reportId}/summary`, payload);
       setReports(reports.map(r => r._id === reportId ? data : r));
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to analyze report with AskMyDoc AI. Please try again.");
+      alert(error.response?.data?.message || "Failed to analyze report with AI. Please try again.");
       fetchReports();
     }
   };
@@ -152,100 +132,38 @@ const Reports = () => {
             <span>📤</span> Upload New Medical Report
           </h3>
 
-          {/* Quick Disease Chips */}
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>
-              ⚡ Quick Select Disease / Test Type:
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {QUICK_DISEASES.map(q => (
-                <button
-                  key={q.name}
-                  type="button"
-                  onClick={() => {
-                    setDiseaseName(q.name);
-                    setCategory(q.cat);
-                  }}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: '0.78rem',
-                    background: diseaseName === q.name ? '#0284c7' : '#f1f5f9',
-                    color: diseaseName === q.name ? '#fff' : '#334155',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '16px',
-                    cursor: 'pointer',
-                    fontWeight: diseaseName === q.name ? 600 : 400
-                  }}>
-                  {q.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                  Disease or Test Name (e.g., Dengue, Brain MRI, Diabetes, CBC) *
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="Enter disease or test (e.g. Dengue, Platelet Count, MRI Brain)" 
-                  value={diseaseName} 
-                  onChange={(e) => setDiseaseName(e.target.value)} 
-                  className="input-field" 
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                  Select File (PDF or Image) *
-                </label>
-                <input 
-                  type="file" 
-                  accept=".pdf,image/*" 
-                  onChange={(e) => setFile(e.target.files[0])} 
-                  className="input-field" 
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                  Category
-                </label>
-                <select 
-                  value={category} 
-                  onChange={(e) => setCategory(e.target.value)} 
-                  className="input-field"
-                  style={{ width: '100%', cursor: 'pointer' }}>
-                  {REPORT_CATEGORIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                  Observed Values / Doctor Notes (Optional)
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Platelets 45,000, Hb 9.5, Fasting sugar 185" 
-                  value={notes} 
-                  onChange={(e) => setNotes(e.target.value)} 
-                  className="input-field"
-                  style={{ width: '100%' }}
-                />
-              </div>
+          <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
+                Select Medical File (PDF or Image) *
+              </label>
+              <input 
+                type="file" 
+                accept=".pdf,image/*" 
+                onChange={(e) => setFile(e.target.files[0] || null)} 
+                className="input-field" 
+                style={{ width: '100%', cursor: 'pointer', padding: '10px 14px' }}
+                required
+              />
+              {file && (
+                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#0369a1', background: '#f0f9ff', padding: '6px 12px', borderRadius: '8px', width: 'fit-content', border: '1px solid #bae6fd' }}>
+                  <span>📎 Selected:</span>
+                  <strong>{file.name}</strong>
+                  <span>({(file.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              )}
+              <p style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '8px', marginBottom: 0 }}>
+                ⚡ Automatic analysis: Our AI automatically detects the disease, generates concise precautions, and matches the treating doctor directly from your file.
+              </p>
             </div>
 
             <div>
-              <button type="submit" className="btn-primary" disabled={loading || !file} style={{ padding: '10px 24px' }}>
-                {loading ? 'Uploading & Analyzing...' : '🚀 Upload & Analyze with AskMyDoc'}
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                disabled={loading || !file} 
+                style={{ padding: '12px 28px', fontSize: '0.9rem', fontWeight: 600 }}>
+                {loading ? '⏳ Uploading & Analyzing...' : '🚀 Upload & Analyze Report'}
               </button>
             </div>
           </form>
@@ -427,7 +345,7 @@ const ReportCard = ({ report, speakText, onGenerate, userRole }) => {
             disabled={report.aiSummary === 'Generating...'}
             className="btn-primary" 
             style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#0284c7', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-            {report.aiSummary === 'Generating...' ? '⏳ Analyzing...' : (report.aiSummary && !report.aiSummary.startsWith('Analysis pending') ? '🔄 Re-Analyze with AskMyDoc' : '✨ Analyze with AskMyDoc AI')}
+            {report.aiSummary === 'Generating...' ? '⏳ Analyzing...' : (report.aiSummary && !report.aiSummary.startsWith('Analysis pending') ? '🔄 Re-Analyze Report' : '✨ Analyze with AI')}
           </button>
           <button 
             onClick={() => speakText(report.aiSummary || "Analysis pending")}
@@ -498,7 +416,7 @@ const ReportCard = ({ report, speakText, onGenerate, userRole }) => {
       <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}>
           <span style={{ fontSize: '0.95rem' }}>🤖</span>
-          <strong style={{ color: 'var(--primary)', fontSize: '0.86rem' }}>AskMyDoc Clinical Analysis & Precautions:</strong>
+          <strong style={{ color: 'var(--primary)', fontSize: '0.86rem' }}>AI Clinical Summary & Suggested Doctors:</strong>
         </div>
         <ClinicalSummaryViewer text={report.aiSummary} />
       </div>

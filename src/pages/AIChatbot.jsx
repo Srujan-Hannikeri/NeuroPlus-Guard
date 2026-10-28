@@ -83,7 +83,7 @@ const renderMarkdown = (text) => {
 const AIChatbot = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Hello! I am your NeuroPlus AI assistant powered by AskMyDoc Medical AI. Please describe your symptoms or health questions. Note: I am not a substitute for an in-person medical evaluation.' }
+    { sender: 'bot', text: 'Hello! I am your NeuroPlus AI assistant. Please describe your symptoms or health questions. Note: I am not a substitute for an in-person medical evaluation.' }
   ]);
   const [input, setInput] = useState('');
   const [image, setImage] = useState(null);
@@ -142,7 +142,7 @@ const AIChatbot = () => {
       setMessages(prev => [...prev, { sender: 'bot', text: res.data.reply }]);
     } catch (error) {
       console.error("AI request failed", error);
-      setMessages(prev => [...prev, { sender: 'bot', text: error.response?.data?.message || "Sorry, I am having trouble connecting to the server. Please check your connection or AskMyDoc service." }]);
+      setMessages(prev => [...prev, { sender: 'bot', text: error.response?.data?.message || "Sorry, I am having trouble connecting to the server. Please check your connection or try again." }]);
     } finally {
       setIsLoading(false);
     }
@@ -155,7 +155,7 @@ const AIChatbot = () => {
           <Logo width={40} height={40} />
           <div>
             <h2 style={{ margin: 0 }}>NeuroPlus Guard - AI Symptom Checker</h2>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Powered by AskMyDoc Medical AI</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Powered by NeuroPlus Medical AI</span>
           </div>
         </div>
         <LiveClock />
